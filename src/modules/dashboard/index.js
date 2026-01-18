@@ -2,16 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { Card, Row, Col, Statistic, Select, DatePicker } from 'antd';
 import {
   UserOutlined,
-  ShopOutlined,
-  CheckCircleOutlined,
   DollarOutlined,
   ArrowUpOutlined,
   ArrowDownOutlined,
 } from '@ant-design/icons';
 import {
-  PieChart,
-  Pie,
-  Cell,
   BarChart,
   Bar,
   XAxis,
@@ -22,6 +17,9 @@ import {
   ResponsiveContainer,
   LineChart,
   Line,
+  PieChart,
+  Pie,
+  Cell,
 } from 'recharts';
 import axios from 'axios';
 import moment from 'moment';
@@ -32,8 +30,6 @@ const { Option } = Select;
 const Dashboard = () => {
   const [stats, setStats] = useState({
     totalCustomers: 0,
-    totalBusinesses: 0,
-    totalTasks: 0,
     totalRevenue: 0,
   });
   const [transactions, setTransactions] = useState([]);
@@ -47,17 +43,13 @@ const Dashboard = () => {
 
   const fetchStats = async () => {
     try {
-      const [customersRes, businessesRes, tasksRes, transactionsRes] = await Promise.all([
+      const [customersRes, transactionsRes] = await Promise.all([
         axios.get('/api/customers', { params: { page: 1 } }),
-        axios.get('/api/businesses', { params: { page: 1 } }),
-        axios.get('/api/tasks', { params: { page: 1 } }),
         axios.get('/api/transactions/summary'),
       ]);
 
       setStats({
         totalCustomers: customersRes.data.customerCount,
-        totalBusinesses: businessesRes.data.businessCount,
-        totalTasks: tasksRes.data.taskCount,
         totalRevenue: transactionsRes.data.totalRevenue,
       });
     } catch (error) {
@@ -106,27 +98,6 @@ const Dashboard = () => {
         (t) => t.date >= startOfYear && t.date <= endOfYear
       );
     }
-
-    const categoryData = {};
-    filteredTransactions.forEach((t) => {
-      if (t.status === 'completed') {
-        if (!categoryData[t.category]) {
-          categoryData[t.category] = { revenue: 0, expense: 0 };
-        }
-        if (t.type === 'revenue') {
-          categoryData[t.category].revenue += t.amount;
-        } else {
-          categoryData[t.category].expense += t.amount;
-        }
-      }
-    });
-
-    const pieData = Object.keys(categoryData).map((category) => ({
-      name: category,
-      value: categoryData[category].revenue + categoryData[category].expense,
-      revenue: categoryData[category].revenue,
-      expense: categoryData[category].expense,
-    }));
 
     let barData = [];
     if (timeRange === 'month') {
@@ -193,15 +164,18 @@ const Dashboard = () => {
       });
     }
 
-    return { pieData, barData };
+    return { barData };
   };
 
-  const { pieData, barData } = getChartData();
-
-  const COLORS = ['#0A8FDC', '#49BD65', '#F44D50', '#FF8042', '#8884d8', '#82ca9d', '#ffc658', '#4299E1'];
+  const { barData } = getChartData();
 
   const totalRevenue = barData.reduce((sum, item) => sum + item.Thu, 0);
   const totalExpense = barData.reduce((sum, item) => sum + item.Chi, 0);
+  const pieData = [
+    { name: 'Thu', value: totalRevenue },
+    { name: 'Chi', value: totalExpense },
+  ];
+  const pieColors = ['#49BD65', '#F44D50'];
 
   return (
     <div className="dashboard-container">
@@ -226,7 +200,7 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <Row gutter={[16, 16]}>
+      <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
         <Col xs={24} sm={12} lg={6}>
           <Card>
             <Statistic
@@ -240,30 +214,32 @@ const Dashboard = () => {
         <Col xs={24} sm={12} lg={6}>
           <Card>
             <Statistic
-              title="Tổng doanh nghiệp"
-              value={stats.totalBusinesses}
-              prefix={<ShopOutlined />}
-              valueStyle={{ color: '#52c41a' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="Tổng công việc"
-              value={stats.totalTasks}
-              prefix={<CheckCircleOutlined />}
-              valueStyle={{ color: '#faad14' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
               title="Tổng doanh thu"
               value={stats.totalRevenue}
               prefix={<DollarOutlined />}
               valueStyle={{ color: '#3f8600' }}
+              formatter={(value) => formatCurrency(value)}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card>
+            <Statistic
+              title="Thu (theo kỳ chọn)"
+              value={totalRevenue}
+              prefix={<ArrowUpOutlined />}
+              valueStyle={{ color: '#49BD65' }}
+              formatter={(value) => formatCurrency(value)}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card>
+            <Statistic
+              title="Chi (theo kỳ chọn)"
+              value={totalExpense}
+              prefix={<ArrowDownOutlined />}
+              valueStyle={{ color: '#F44D50' }}
               formatter={(value) => formatCurrency(value)}
             />
           </Card>
@@ -321,33 +297,31 @@ const Dashboard = () => {
           </Card>
         </Col>
         <Col xs={24} lg={8}>
-          <Card title="Phân bổ theo danh mục" className="chart-card">
-            {pieData.length > 0 ? (
+          <Card title="Phân bổ Thu / Chi" className="chart-card">
+            {(totalRevenue + totalExpense) > 0 ? (
               <ResponsiveContainer width="100%" height={280}>
                 <PieChart>
+                  <Tooltip formatter={(value) => formatCurrency(value)} />
+                  <Legend />
                   <Pie
                     data={pieData}
+                    dataKey="value"
+                    nameKey="name"
                     cx="50%"
                     cy="50%"
-                    labelLine={false}
+                    innerRadius={60}
+                    outerRadius={90}
                     label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
                   >
                     {pieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
                     ))}
                   </Pie>
-                  <Tooltip 
-                    labelStyle={{ color: 'black' }}
-                    formatter={(value) => formatCurrency(value)}
-                  />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
               <div style={{ textAlign: 'center', padding: '50px', color: '#999' }}>
-                Không có dữ liệu
+                Không có dữ liệu để hiển thị
               </div>
             )}
           </Card>

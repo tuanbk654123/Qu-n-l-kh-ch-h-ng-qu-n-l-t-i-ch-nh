@@ -41,18 +41,26 @@ const MyAccount = () => {
 
   const getRoleText = (role) => {
     const roles = {
-      admin: 'Quản trị viên',
-      manager: 'Quản lý',
-      user: 'Nhân viên',
+      admin: 'Hành chính',
+      marketing_sales: 'Marketing/Sales',
+      ip_executive: 'IP Executive',
+      ip_manager: 'IP Manager',
+      director: 'Giám đốc',
+      ceo: 'Tổng giám đốc',
+      accountant: 'Kế toán',
     };
     return roles[role] || role;
   };
 
   const getRoleColor = (role) => {
     const colors = {
-      admin: 'red',
-      manager: 'blue',
-      user: 'green',
+      admin: 'gold',
+      marketing_sales: 'purple',
+      ip_executive: 'geekblue',
+      ip_manager: 'blue',
+      director: 'red',
+      ceo: 'volcano',
+      accountant: 'green',
     };
     return colors[role] || 'default';
   };

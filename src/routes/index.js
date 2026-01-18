@@ -4,12 +4,11 @@ import ProtectedRoute from '../components/ProtectedRoute';
 import AppLayout from '../components/AppLayout';
 import Login from '../modules/auth/Login';
 import Customers from '../modules/customers';
-import Businesses from '../modules/businesses';
-import Tasks from '../modules/tasks';
-import Transactions from '../modules/transactions';
+import Costs from '../modules/costs';
 import Dashboard from '../modules/dashboard';
 import MyAccount from '../modules/account/MyAccount';
 import Users from '../modules/users';
+import PermissionModule from '../modules/permissions';
 import Contracts from '../modules/contracts';
 
 const AppRoutes = () => {
@@ -25,15 +24,14 @@ const AppRoutes = () => {
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/customers" element={<Customers />} />
-                <Route path="/businesses" element={<Businesses />} />
-                <Route path="/tasks" element={<Tasks />} />
-                <Route path="/transactions" element={<Transactions />} />
+                <Route path="/costs" element={<Costs />} />
                 <Route path="/my-account" element={<MyAccount />} />
+                <Route path="/users" element={<Users />} />
                 <Route
-                  path="/users"
+                  path="/permissions"
                   element={
-                    <ProtectedRoute requireAdmin={true}>
-                      <Users />
+                    <ProtectedRoute requirePermissionsAdmin={true}>
+                      <PermissionModule />
                     </ProtectedRoute>
                   }
                 />

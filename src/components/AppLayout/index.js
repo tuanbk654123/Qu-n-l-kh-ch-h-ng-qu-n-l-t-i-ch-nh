@@ -11,6 +11,7 @@ import {
   SettingOutlined,
   LogoutOutlined,
   FileTextOutlined,
+  SafetyCertificateOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../../context/AuthContext';
 import './index.css';
@@ -21,7 +22,7 @@ const AppLayout = ({ children }) => {
   const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout, isAdmin } = useAuth();
+  const { user, logout, canAccessUsersModule, canAccessPermissions } = useAuth();
 
   const handleMenuClick = ({ key }) => {
     navigate(key);
@@ -45,33 +46,26 @@ const AppLayout = ({ children }) => {
         label: 'Quản lý khách hàng',
       },
       {
-        key: '/businesses',
-        icon: <ShopOutlined />,
-        label: 'Quản lý doanh nghiệp',
-      },
-      {
-        key: '/tasks',
-        icon: <CheckCircleOutlined />,
-        label: 'Quản lý công việc',
-      },
-      {
-        key: '/transactions',
+        key: '/costs',
         icon: <DollarOutlined />,
-        label: 'Quản lý thu chi',
-      },
-      {
-        key: '/contracts',
-        icon: <FileTextOutlined />,
-        label: 'Quản lý hợp đồng',
+        label: 'Quản lý chi phí',
       },
     ];
 
-    // Chỉ admin mới thấy menu Quản lý nhân viên
-    if (isAdmin()) {
+    if (canAccessUsersModule()) {
       items.push({
         key: '/users',
         icon: <TeamOutlined />,
         label: 'Quản lý nhân viên',
+      });
+    }
+
+    // Chỉ admin và CEO mới thấy menu Phân quyền
+    if (canAccessPermissions()) {
+      items.push({
+        key: '/permissions',
+        icon: <SafetyCertificateOutlined />,
+        label: 'Phân quyền',
       });
     }
 

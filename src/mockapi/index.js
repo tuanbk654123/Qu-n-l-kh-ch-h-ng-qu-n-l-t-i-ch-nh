@@ -5,8 +5,12 @@ import { businessesData } from './fakedb/businesses';
 import { tasksData } from './fakedb/tasks';
 import { transactionsData } from './fakedb/transactions';
 import { usersData, setCurrentUser, getCurrentUser } from './fakedb/users';
+import { costsData } from './fakedb/costs';
+import { roles, qlkhFields, qlcpFields, initialPermissions } from './fakedb/permissions';
 
 const mock = new MockAdapter(axios, { delayResponse: 500 });
+
+let currentPermissions = initialPermissions;
 
 // API Authentication
 mock.onPost('/api/auth/login').reply((config) => {
@@ -98,8 +102,27 @@ mock.onPost('/api/users').reply((config) => {
 
   const newUser = JSON.parse(config.data);
   const id = Math.max(...usersData.map((u) => u.id)) + 1;
-  usersData.push({ ...newUser, id });
-  const { password, ...userWithoutPassword } = { ...newUser, id };
+  const now = new Date().toISOString().split('T')[0];
+  const uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+  const enriched = {
+    ...newUser,
+    id,
+    userId: newUser.userId || uuid,
+    status: newUser.status || 'active',
+    directPermission: newUser.directPermission ?? false,
+    approveRight: newUser.approveRight ?? false,
+    financeViewRight: newUser.financeViewRight ?? false,
+    exportDataRight: newUser.exportDataRight ?? false,
+    createdAt: newUser.createdAt || now,
+    createdBy: newUser.createdBy || currentUser.id,
+    updatedAt: newUser.updatedAt || now,
+    updatedBy: newUser.updatedBy || currentUser.id,
+  };
+  usersData.push(enriched);
+  const { password, ...userWithoutPassword } = enriched;
   return [200, userWithoutPassword];
 });
 
@@ -113,7 +136,8 @@ mock.onPut(/\/api\/users\/\d+/).reply((config) => {
   const updatedUser = JSON.parse(config.data);
   const index = usersData.findIndex((u) => u.id === id);
   if (index !== -1) {
-    usersData[index] = { ...usersData[index], ...updatedUser };
+    const now = new Date().toISOString().split('T')[0];
+    usersData[index] = { ...usersData[index], ...updatedUser, updatedAt: now, updatedBy: currentUser.id };
     const { password, ...userWithoutPassword } = usersData[index];
     return [200, userWithoutPassword];
   }
@@ -421,6 +445,91 @@ mock.onDelete(/\/api\/transactions\/\d+/).reply((config) => {
     return [200, { message: 'Transaction deleted' }];
   }
   return [404, { message: 'Transaction not found' }];
+});
+
+// API Quản lý chi phí
+mock.onGet('/api/costs').reply((config) => {
+  const { search, type, status, page = 1 } = config.params || {};
+  let costs = [...costsData];
+
+  if (search) {
+    costs = costs.filter(
+      (cost) =>
+        cost.content.toLowerCase().includes(search.toLowerCase()) ||
+        cost.requester.toLowerCase().includes(search.toLowerCase()) ||
+        cost.voucherNumber.toLowerCase().includes(search.toLowerCase())
+    );
+  }
+
+  if (type) {
+    costs = costs.filter((cost) => cost.transactionType === type);
+  }
+
+  if (status) {
+    costs = costs.filter((cost) => cost.paymentStatus === status);
+  }
+
+  const pageSize = 10;
+  const start = (page - 1) * pageSize;
+  const end = start + pageSize;
+
+  return [
+    200,
+    {
+      costs: costs.slice(start, end),
+      costCount: costs.length,
+    },
+  ];
+});
+
+mock.onGet(/\/api\/costs\/\d+/).reply((config) => {
+  const id = parseInt(config.url.split('/').pop());
+  const cost = costsData.find((c) => c.id === id);
+  return cost ? [200, cost] : [404, { message: 'Cost not found' }];
+});
+
+mock.onPost('/api/costs').reply((config) => {
+  const newCost = JSON.parse(config.data);
+  const id = Math.max(...costsData.map((c) => c.id)) + 1;
+  costsData.push({ ...newCost, id });
+  return [200, { ...newCost, id }];
+});
+
+mock.onPut(/\/api\/costs\/\d+/).reply((config) => {
+  const id = parseInt(config.url.split('/').pop());
+  const updatedCost = JSON.parse(config.data);
+  const index = costsData.findIndex((c) => c.id === id);
+  if (index !== -1) {
+    costsData[index] = { ...updatedCost, id };
+    return [200, costsData[index]];
+  }
+  return [404, { message: 'Cost not found' }];
+});
+
+mock.onDelete(/\/api\/costs\/\d+/).reply((config) => {
+  const id = parseInt(config.url.split('/').pop());
+  const index = costsData.findIndex((c) => c.id === id);
+  if (index !== -1) {
+    costsData.splice(index, 1);
+    return [200, { message: 'Cost deleted' }];
+  }
+  return [404, { message: 'Cost not found' }];
+});
+
+// API Phân quyền
+mock.onGet('/api/permissions').reply(() => {
+  return [200, {
+    permissions: currentPermissions,
+    roles,
+    qlkhFields,
+    qlcpFields
+  }];
+});
+
+mock.onPost('/api/permissions').reply((config) => {
+  const newPermissions = JSON.parse(config.data);
+  currentPermissions = newPermissions;
+  return [200, { message: 'Cập nhật phân quyền thành công' }];
 });
 
 // Initialize mock adapter

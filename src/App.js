@@ -5,7 +5,6 @@ import viVN from 'antd/locale/vi_VN';
 import { IntlProvider } from 'react-intl';
 import { AuthProvider } from './context/AuthContext';
 import AppRoutes from './routes';
-import './mockapi';
 import './App.css';
 
 const messages = {
