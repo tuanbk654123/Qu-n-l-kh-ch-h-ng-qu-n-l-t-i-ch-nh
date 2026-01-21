@@ -1,4 +1,5 @@
 using System.Text;
+using BE_QLKH.Hubs;
 using BE_QLKH.Models;
 using BE_QLKH.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -24,6 +25,7 @@ builder.Services.AddScoped<IPermissionService, PermissionService>();
 builder.Services.AddHostedService<DatabaseSeeder>();
 
 builder.Services.AddControllers();
+builder.Services.AddSignalR();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -74,5 +76,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<NotificationsHub>("/hubs/notifications");
 
 app.Run();

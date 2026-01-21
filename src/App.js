@@ -4,6 +4,7 @@ import { ConfigProvider } from 'antd';
 import viVN from 'antd/locale/vi_VN';
 import { IntlProvider } from 'react-intl';
 import { AuthProvider } from './context/AuthContext';
+import { NotificationProvider } from './context/NotificationContext';
 import AppRoutes from './routes';
 import './App.css';
 
@@ -18,9 +19,11 @@ function App() {
     <IntlProvider locale="vi" messages={messages.vi}>
       <ConfigProvider locale={viVN}>
         <AuthProvider>
-          <BrowserRouter>
-            <AppRoutes />
-          </BrowserRouter>
+          <NotificationProvider>
+            <BrowserRouter>
+              <AppRoutes />
+            </BrowserRouter>
+          </NotificationProvider>
         </AuthProvider>
       </ConfigProvider>
     </IntlProvider>

@@ -1,3 +1,4 @@
+using System;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -29,7 +30,7 @@ public class AuthController : ControllerBase
         public string Username { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
     }
-
+        
     [HttpPost("login")]
     [AllowAnonymous]
     public async Task<ActionResult<object>> Login([FromBody] LoginRequest request)
@@ -45,6 +46,11 @@ public class AuthController : ControllerBase
             return Unauthorized(new { message = "Sai tài khoản hoặc mật khẩu" });
         }
 
+        if (!string.Equals(user.Status, "active", StringComparison.OrdinalIgnoreCase))
+        {
+            return Unauthorized(new { message = "Tài khoản đang không hoạt động hoặc đã nghỉ việc" });
+        }
+
         var token = GenerateJwtToken(user);
 
         return Ok(new
@@ -58,7 +64,11 @@ public class AuthController : ControllerBase
                 fullName = user.FullName,
                 phone = user.Phone,
                 address = user.Address,
-                role = user.RoleCode
+                role = user.RoleCode,
+                status = user.Status,
+                department = user.Department,
+                position = user.Position,
+                joinDate = user.JoinDate
             }
         });
     }
@@ -79,6 +89,12 @@ public class AuthController : ControllerBase
             return Unauthorized();
         }
 
+        if (!string.IsNullOrWhiteSpace(user.Status) &&
+            !string.Equals(user.Status, "active", StringComparison.OrdinalIgnoreCase))
+        {
+            return Unauthorized(new { message = "Tài khoản đang không hoạt động hoặc đã nghỉ việc" });
+        }
+
         return Ok(new
         {
             user = new
@@ -89,7 +105,11 @@ public class AuthController : ControllerBase
                 fullName = user.FullName,
                 phone = user.Phone,
                 address = user.Address,
-                role = user.RoleCode
+                role = user.RoleCode,
+                status = user.Status,
+                department = user.Department,
+                position = user.Position,
+                joinDate = user.JoinDate
             }
         });
     }
@@ -138,4 +158,3 @@ public class AuthController : ControllerBase
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 }
-

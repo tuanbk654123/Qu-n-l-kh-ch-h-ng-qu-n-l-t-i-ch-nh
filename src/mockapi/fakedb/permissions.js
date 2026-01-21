@@ -5,7 +5,7 @@ export const roles = [
   { key: 'director', label: 'Giám đốc' },
   { key: 'ceo', label: 'Tổng giám đốc' },
   { key: 'accountant', label: 'Kế toán' },
-  { key: 'admin', label: 'Hành chính' },
+  { key: 'admin', label: 'Admin' },
 ];
 
 export const qlkhFields = [

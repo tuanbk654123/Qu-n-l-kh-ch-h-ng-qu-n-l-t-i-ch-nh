@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Statistic, Select, DatePicker } from 'antd';
+import { Card, Row, Col, Statistic, DatePicker, Select } from 'antd';
 import {
   UserOutlined,
   DollarOutlined,
@@ -22,9 +22,10 @@ import {
   Cell,
 } from 'recharts';
 import axios from 'axios';
-import moment from 'moment';
+import dayjs from 'dayjs';
 import './index.css';
 
+const { RangePicker } = DatePicker;
 const { Option } = Select;
 
 const Dashboard = () => {
@@ -33,24 +34,33 @@ const Dashboard = () => {
     totalRevenue: 0,
   });
   const [transactions, setTransactions] = useState([]);
-  const [timeRange, setTimeRange] = useState('month');
-  const [selectedDate, setSelectedDate] = useState(moment('2024-01', 'YYYY-MM'));
+  const [dateRange, setDateRange] = useState(null);
 
   useEffect(() => {
     fetchStats();
     fetchTransactions();
-  }, [timeRange, selectedDate]);
+  }, [dateRange]);
 
   const fetchStats = async () => {
     try {
-      const [customersRes, transactionsRes] = await Promise.all([
-        axios.get('/api/customers', { params: { page: 1 } }),
-        axios.get('/api/transactions/summary'),
-      ]);
-
       setStats({
-        totalCustomers: customersRes.data.customerCount,
-        totalRevenue: transactionsRes.data.totalRevenue,
+        totalCustomers: 0,
+        totalRevenue: 0,
+      });
+
+      const [from, to] = dateRange || [];
+      const params = {};
+      if (from && to) {
+        params.fromDate = from.format('YYYY-MM-DD');
+        params.toDate = to.format('YYYY-MM-DD');
+      }
+
+      const response = await axios.get('/api/dashboard/overview', {
+        params,
+      });
+      setStats({
+        totalCustomers: response.data.totalCustomers,
+        totalRevenue: response.data.totalRevenue,
       });
     } catch (error) {
       console.error('Lỗi khi tải thống kê:', error);
@@ -59,8 +69,15 @@ const Dashboard = () => {
 
   const fetchTransactions = async () => {
     try {
-      const response = await axios.get('/api/transactions', {
-        params: { page: 1, pageSize: 1000 },
+      const [from, to] = dateRange || [];
+      const params = {};
+      if (from && to) {
+        params.fromDate = from.format('YYYY-MM-DD');
+        params.toDate = to.format('YYYY-MM-DD');
+      }
+
+      const response = await axios.get('/api/dashboard/transactions', {
+        params,
       });
       setTransactions(response.data.transactions);
     } catch (error) {
@@ -76,93 +93,19 @@ const Dashboard = () => {
   };
 
   const getChartData = () => {
-    let filteredTransactions = [...transactions];
-
-    if (timeRange === 'month') {
-      const startOfMonth = selectedDate.clone().startOf('month').format('YYYY-MM-DD');
-      const endOfMonth = selectedDate.clone().endOf('month').format('YYYY-MM-DD');
-      filteredTransactions = filteredTransactions.filter(
-        (t) => t.date >= startOfMonth && t.date <= endOfMonth
-      );
-    } else if (timeRange === 'quarter') {
-      const quarter = Math.floor(selectedDate.month() / 3);
-      const startOfQuarter = selectedDate.clone().startOf('year').add(quarter * 3, 'months').format('YYYY-MM-DD');
-      const endOfQuarter = selectedDate.clone().startOf('year').add(quarter * 3 + 2, 'months').endOf('month').format('YYYY-MM-DD');
-      filteredTransactions = filteredTransactions.filter(
-        (t) => t.date >= startOfQuarter && t.date <= endOfQuarter
-      );
-    } else if (timeRange === 'year') {
-      const startOfYear = selectedDate.clone().startOf('year').format('YYYY-MM-DD');
-      const endOfYear = selectedDate.clone().endOf('year').format('YYYY-MM-DD');
-      filteredTransactions = filteredTransactions.filter(
-        (t) => t.date >= startOfYear && t.date <= endOfYear
-      );
-    }
-
-    let barData = [];
-    if (timeRange === 'month') {
-      const daysInMonth = selectedDate.daysInMonth();
-      barData = Array.from({ length: daysInMonth }, (_, i) => {
-        const day = i + 1;
-        const dateStr = selectedDate.clone().date(day).format('YYYY-MM-DD');
-        const dayTransactions = filteredTransactions.filter((t) => t.date === dateStr);
-        const revenue = dayTransactions
-          .filter((t) => t.type === 'revenue' && t.status === 'completed')
-          .reduce((sum, t) => sum + t.amount, 0);
-        const expense = dayTransactions
-          .filter((t) => t.type === 'expense' && t.status === 'completed')
-          .reduce((sum, t) => sum + t.amount, 0);
-        return {
-          name: `Ngày ${day}`,
-          date: dateStr,
-          Thu: revenue,
-          Chi: expense,
-        };
-      });
-    } else if (timeRange === 'quarter') {
-      const quarter = Math.floor(selectedDate.month() / 3);
-      barData = [0, 1, 2].map((monthOffset) => {
-        const month = quarter * 3 + monthOffset;
-        const monthMoment = selectedDate.clone().month(month);
-        const startOfMonth = monthMoment.startOf('month').format('YYYY-MM-DD');
-        const endOfMonth = monthMoment.endOf('month').format('YYYY-MM-DD');
-        const monthTransactions = filteredTransactions.filter(
-          (t) => t.date >= startOfMonth && t.date <= endOfMonth
-        );
-        const revenue = monthTransactions
-          .filter((t) => t.type === 'revenue' && t.status === 'completed')
-          .reduce((sum, t) => sum + t.amount, 0);
-        const expense = monthTransactions
-          .filter((t) => t.type === 'expense' && t.status === 'completed')
-          .reduce((sum, t) => sum + t.amount, 0);
-        return {
-          name: `Tháng ${month + 1}`,
-          Thu: revenue,
-          Chi: expense,
-        };
-      });
-    } else if (timeRange === 'year') {
-      barData = Array.from({ length: 12 }, (_, i) => {
-        const monthMoment = selectedDate.clone().month(i);
-        const startOfMonth = monthMoment.startOf('month').format('YYYY-MM-DD');
-        const endOfMonth = monthMoment.endOf('month').format('YYYY-MM-DD');
-        const monthTransactions = filteredTransactions.filter(
-          (t) => t.date >= startOfMonth && t.date <= endOfMonth
-        );
-        const revenue = monthTransactions
-          .filter((t) => t.type === 'revenue' && t.status === 'completed')
-          .reduce((sum, t) => sum + t.amount, 0);
-        const expense = monthTransactions
-          .filter((t) => t.type === 'expense' && t.status === 'completed')
-          .reduce((sum, t) => sum + t.amount, 0);
-        return {
-          name: `T${i + 1}`,
-          fullName: `Tháng ${i + 1}`,
-          Thu: revenue,
-          Chi: expense,
-        };
-      });
-    }
+    const barData = transactions.map((t) => {
+      const label = dayjs(t.date).isValid()
+        ? dayjs(t.date).format('DD/MM')
+        : t.date;
+      const revenue = t.type === 'revenue' && t.status === 'completed' ? t.amount : 0;
+      const expense = t.type === 'expense' && t.status === 'completed' ? t.amount : 0;
+      return {
+        name: label,
+        date: t.date,
+        Thu: revenue,
+        Chi: expense,
+      };
+    });
 
     return { barData };
   };
@@ -177,25 +120,45 @@ const Dashboard = () => {
   ];
   const pieColors = ['#49BD65', '#F44D50'];
 
+  const handlePresetChange = (value) => {
+    const today = dayjs();
+    if (value === 'thisMonth') {
+      setDateRange([today.startOf('month'), today.endOf('month')]);
+    } else if (value === 'lastMonth') {
+      const lastMonth = today.subtract(1, 'month');
+      setDateRange([lastMonth.startOf('month'), lastMonth.endOf('month')]);
+    } else if (value === 'thisYear') {
+      setDateRange([today.startOf('year'), today.endOf('year')]);
+    } else if (value === 'all') {
+      setDateRange(null);
+    }
+  };
+
   return (
     <div className="dashboard-container">
       <div className="dashboard-header">
         <h1>Dashboard - Tổng quan hệ thống</h1>
         <div className="dashboard-controls">
           <Select
-            value={timeRange}
-            onChange={setTimeRange}
-            style={{ width: 150, marginRight: 16 }}
+            defaultValue="all"
+            style={{ width: 170, marginRight: 12 }}
+            onChange={handlePresetChange}
           >
-            <Option value="month">Theo tháng</Option>
-            <Option value="quarter">Theo quý</Option>
-            <Option value="year">Theo năm</Option>
+            <Option value="thisMonth">Tháng này</Option>
+            <Option value="lastMonth">Tháng trước</Option>
+            <Option value="thisYear">Năm nay</Option>
+            <Option value="all">Tất cả thời gian</Option>
           </Select>
-          <DatePicker
-            picker={timeRange === 'year' ? 'year' : timeRange === 'quarter' ? 'quarter' : 'month'}
-            value={selectedDate}
-            onChange={setSelectedDate}
-            format={timeRange === 'year' ? 'YYYY' : timeRange === 'quarter' ? 'YYYY [Q]Q' : 'MM/YYYY'}
+          <RangePicker
+            value={dateRange}
+            onChange={(values) => {
+              if (!values || !values[0] || !values[1]) {
+                setDateRange(null);
+              } else {
+                setDateRange(values);
+              }
+            }}
+            format="DD/MM/YYYY"
           />
         </div>
       </div>

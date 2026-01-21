@@ -152,7 +152,7 @@ public class PermissionService : IPermissionService
     {
         return fields
             .GroupBy(f => new { f.GroupCode, f.GroupLabel })
-            .OrderBy(g => g.Key.GroupCode)
+            .OrderBy(g => g.Key.GroupLabel)
             .Select(g => new PermissionFieldGroupDto
             {
                 Key = g.Key.GroupCode,

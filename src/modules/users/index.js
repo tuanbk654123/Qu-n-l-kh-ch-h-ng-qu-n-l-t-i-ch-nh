@@ -23,6 +23,7 @@ import {
 import axios from 'axios';
 import dayjs from 'dayjs';
 import { useAuth } from '../../context/AuthContext';
+import { handleApiError } from '../../utils/errorHelper';
 import './index.css';
 
 const { Option } = Select;
@@ -89,11 +90,7 @@ const Users = () => {
       setUsers(response.data.users);
       setTotal(response.data.userCount);
     } catch (error) {
-      if (error.response?.status === 403) {
-        message.error('Bạn không có quyền truy cập trang này');
-      } else {
-        message.error('Lỗi khi tải dữ liệu nhân viên');
-      }
+      handleApiError(error, 'Lỗi khi tải dữ liệu nhân viên');
     } finally {
       setLoading(false);
     }
@@ -129,7 +126,7 @@ const Users = () => {
       message.success('Xóa nhân viên thành công');
       fetchUsers();
     } catch (error) {
-      message.error('Lỗi khi xóa nhân viên');
+      handleApiError(error, 'Lỗi khi xóa nhân viên');
     }
   };
 
@@ -149,7 +146,7 @@ const Users = () => {
       form.resetFields();
       fetchUsers();
     } catch (error) {
-      message.error('Lỗi khi lưu nhân viên');
+      handleApiError(error, 'Lỗi khi lưu nhân viên');
     }
   };
 

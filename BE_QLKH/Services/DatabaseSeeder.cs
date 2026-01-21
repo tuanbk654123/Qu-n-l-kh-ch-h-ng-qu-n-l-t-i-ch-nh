@@ -126,6 +126,38 @@ public class DatabaseSeeder : IHostedService
                     UpdatedAt = now,
                     CreatedBy = 0,
                     UpdatedBy = 0
+                },
+                new User
+                {
+                    Id = ObjectId.GenerateNewId().ToString(),
+                    LegacyId = 6,
+                    UserId = "U006",
+                    Username = "manager",
+                    FullName = "Quản lý IP",
+                    Email = "manager@example.com",
+                    PasswordHash = HashPassword("123456"),
+                    RoleCode = "ip_manager",
+                    Status = "active",
+                    CreatedAt = now,
+                    UpdatedAt = now,
+                    CreatedBy = 0,
+                    UpdatedBy = 0
+                },
+                new User
+                {
+                    Id = ObjectId.GenerateNewId().ToString(),
+                    LegacyId = 7,
+                    UserId = "U007",
+                    Username = "executive",
+                    FullName = "Chuyên viên IP",
+                    Email = "executive@example.com",
+                    PasswordHash = HashPassword("123456"),
+                    RoleCode = "ip_executive",
+                    Status = "active",
+                    CreatedAt = now,
+                    UpdatedAt = now,
+                    CreatedBy = 0,
+                    UpdatedBy = 0
                 }
             };
 
@@ -362,6 +394,7 @@ public class DatabaseSeeder : IHostedService
         {
             var costs = new List<Cost>
             {
+                // Dữ liệu 2023
                 new Cost
                 {
                     Id = ObjectId.GenerateNewId().ToString(),
@@ -491,6 +524,190 @@ public class DatabaseSeeder : IHostedService
                     PaymentStatus = "Quản lý duyệt",
                     RejectionReason = "",
                     Note = ""
+                },
+
+                // Dữ liệu 2024 - phục vụ Dashboard
+                new Cost
+                {
+                    Id = ObjectId.GenerateNewId().ToString(),
+                    LegacyId = 6,
+                    Requester = "Nguyễn Văn A",
+                    Department = "Kinh doanh",
+                    RequestDate = "2024-01-05",
+                    ProjectCode = "KH2024-01",
+                    TransactionType = "Thu",
+                    TransactionObject = "Công ty ABC",
+                    Content = "Thu tiền dịch vụ tháng 1",
+                    Description = "Khách hàng ABC thanh toán dịch vụ tháng 1",
+                    AmountBeforeTax = 20000000m,
+                    TaxRate = "10%",
+                    TotalAmount = 22000000m,
+                    PaymentMethod = "Chuyển khoản",
+                    Bank = "Vietcombank",
+                    AccountNumber = "0011009999999",
+                    VoucherType = "Hóa đơn",
+                    VoucherNumber = "HD2024-001",
+                    VoucherDate = "2024-01-05",
+                    Attachment = "",
+                    PaymentStatus = "Đã thanh toán",
+                    RejectionReason = "",
+                    Note = ""
+                },
+                new Cost
+                {
+                    Id = ObjectId.GenerateNewId().ToString(),
+                    LegacyId = 7,
+                    Requester = "Trần Thị B",
+                    Department = "Hành chính",
+                    RequestDate = "2024-01-10",
+                    ProjectCode = "",
+                    TransactionType = "Chi",
+                    TransactionObject = "Công ty VPP Hồng Hà",
+                    Content = "Mua văn phòng phẩm tháng 1",
+                    Description = "Mua giấy in, bút viết",
+                    AmountBeforeTax = 3000000m,
+                    TaxRate = "8%",
+                    TotalAmount = 3240000m,
+                    PaymentMethod = "Tiền mặt",
+                    Bank = "",
+                    AccountNumber = "",
+                    VoucherType = "Hóa đơn",
+                    VoucherNumber = "HD2024-010",
+                    VoucherDate = "2024-01-10",
+                    Attachment = "",
+                    PaymentStatus = "Đã thanh toán",
+                    RejectionReason = "",
+                    Note = ""
+                },
+                new Cost
+                {
+                    Id = ObjectId.GenerateNewId().ToString(),
+                    LegacyId = 8,
+                    Requester = "Lê Văn C",
+                    Department = "Kỹ thuật",
+                    RequestDate = "2024-01-15",
+                    ProjectCode = "DA2024-IT01",
+                    TransactionType = "Chi",
+                    TransactionObject = "Nhà cung cấp thiết bị",
+                    Content = "Mua thiết bị triển khai dự án",
+                    Description = "Mua router, switch, thiết bị mạng",
+                    AmountBeforeTax = 15000000m,
+                    TaxRate = "10%",
+                    TotalAmount = 16500000m,
+                    PaymentMethod = "Chuyển khoản",
+                    Bank = "Techcombank",
+                    AccountNumber = "1903999888777",
+                    VoucherType = "Hóa đơn",
+                    VoucherNumber = "HD2024-015",
+                    VoucherDate = "2024-01-15",
+                    Attachment = "",
+                    PaymentStatus = "Đã thanh toán",
+                    RejectionReason = "",
+                    Note = ""
+                },
+                new Cost
+                {
+                    Id = ObjectId.GenerateNewId().ToString(),
+                    LegacyId = 9,
+                    Requester = "Phạm Thị D",
+                    Department = "Kế toán",
+                    RequestDate = "2024-02-05",
+                    ProjectCode = "",
+                    TransactionType = "Thu",
+                    TransactionObject = "Khách hàng XYZ",
+                    Content = "Thu tiền hợp đồng đợt 2",
+                    Description = "Khách hàng thanh toán 50% còn lại",
+                    AmountBeforeTax = 50000000m,
+                    TaxRate = "10%",
+                    TotalAmount = 55000000m,
+                    PaymentMethod = "Chuyển khoản",
+                    Bank = "Vietinbank",
+                    AccountNumber = "111222333",
+                    VoucherType = "Phiếu thu",
+                    VoucherNumber = "PT2024-002",
+                    VoucherDate = "2024-02-05",
+                    Attachment = "",
+                    PaymentStatus = "Đã thanh toán",
+                    RejectionReason = "",
+                    Note = ""
+                },
+                new Cost
+                {
+                    Id = ObjectId.GenerateNewId().ToString(),
+                    LegacyId = 10,
+                    Requester = "Hoàng Văn E",
+                    Department = "Marketing",
+                    RequestDate = "2024-02-20",
+                    ProjectCode = "MKT2024-01",
+                    TransactionType = "Chi",
+                    TransactionObject = "Đối tác quảng cáo",
+                    Content = "Chi phí chạy quảng cáo tháng 2",
+                    Description = "Chiến dịch quảng cáo Facebook/Google",
+                    AmountBeforeTax = 8000000m,
+                    TaxRate = "10%",
+                    TotalAmount = 8800000m,
+                    PaymentMethod = "Chuyển khoản",
+                    Bank = "ACB",
+                    AccountNumber = "666777888",
+                    VoucherType = "Hóa đơn",
+                    VoucherNumber = "HD2024-020",
+                    VoucherDate = "2024-02-20",
+                    Attachment = "",
+                    PaymentStatus = "Đã thanh toán",
+                    RejectionReason = "",
+                    Note = ""
+                },
+                new Cost
+                {
+                    Id = ObjectId.GenerateNewId().ToString(),
+                    LegacyId = 11,
+                    Requester = "Nguyễn Văn A",
+                    Department = "Kinh doanh",
+                    RequestDate = "2024-03-10",
+                    ProjectCode = "KH2024-02",
+                    TransactionType = "Thu",
+                    TransactionObject = "Công ty DEF",
+                    Content = "Thu tiền dịch vụ tháng 3",
+                    Description = "Khách hàng DEF thanh toán dịch vụ tháng 3",
+                    AmountBeforeTax = 25000000m,
+                    TaxRate = "10%",
+                    TotalAmount = 27500000m,
+                    PaymentMethod = "Chuyển khoản",
+                    Bank = "MB Bank",
+                    AccountNumber = "123456789",
+                    VoucherType = "Hóa đơn",
+                    VoucherNumber = "HD2024-030",
+                    VoucherDate = "2024-03-10",
+                    Attachment = "",
+                    PaymentStatus = "Đã thanh toán",
+                    RejectionReason = "",
+                    Note = ""
+                },
+                new Cost
+                {
+                    Id = ObjectId.GenerateNewId().ToString(),
+                    LegacyId = 12,
+                    Requester = "Trần Thị B",
+                    Department = "Hành chính",
+                    RequestDate = "2024-03-18",
+                    ProjectCode = "",
+                    TransactionType = "Chi",
+                    TransactionObject = "Đơn vị tổ chức sự kiện",
+                    Content = "Tổ chức sự kiện nội bộ quý I",
+                    Description = "Chi phí hội thảo nội bộ",
+                    AmountBeforeTax = 12000000m,
+                    TaxRate = "10%",
+                    TotalAmount = 13200000m,
+                    PaymentMethod = "Chuyển khoản",
+                    Bank = "Vietcombank",
+                    AccountNumber = "0011001231234",
+                    VoucherType = "Hóa đơn",
+                    VoucherNumber = "HD2024-035",
+                    VoucherDate = "2024-03-18",
+                    Attachment = "",
+                    PaymentStatus = "Đã thanh toán",
+                    RejectionReason = "",
+                    Note = ""
                 }
             };
 
@@ -508,7 +725,7 @@ public class DatabaseSeeder : IHostedService
                 new Role { Code = "accountant", Name = "Kế toán", IsActive = true },
                 new Role { Code = "director", Name = "Giám đốc", IsActive = true },
                 new Role { Code = "ceo", Name = "Tổng giám đốc", IsActive = true },
-                new Role { Code = "admin", Name = "Hành chính", IsActive = true }
+                new Role { Code = "admin", Name = "Admin", IsActive = true }
             };
 
             await rolesCollection.InsertManyAsync(defaultRoles, cancellationToken: cancellationToken);
@@ -636,26 +853,73 @@ public class DatabaseSeeder : IHostedService
         {
             var fieldPermissions = new List<FieldPermission>();
 
-            void AddQlkhPermissions(string fieldCode)
+            void AddQlkhFieldPermissions(
+                string fieldCode,
+                string marketingSales,
+                string ipExecutive,
+                string ipManager,
+                string accountant,
+                string director,
+                string ceo,
+                string admin)
             {
-                fieldPermissions.Add(new FieldPermission { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "qlkh", FieldCode = fieldCode, RoleCode = "marketing_sales", PermissionLevel = "W" });
-                fieldPermissions.Add(new FieldPermission { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "qlkh", FieldCode = fieldCode, RoleCode = "ip_executive", PermissionLevel = "W" });
-                fieldPermissions.Add(new FieldPermission { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "qlkh", FieldCode = fieldCode, RoleCode = "ip_manager", PermissionLevel = "W" });
-                fieldPermissions.Add(new FieldPermission { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "qlkh", FieldCode = fieldCode, RoleCode = "accountant", PermissionLevel = "R" });
-                fieldPermissions.Add(new FieldPermission { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "qlkh", FieldCode = fieldCode, RoleCode = "director", PermissionLevel = "A" });
-                fieldPermissions.Add(new FieldPermission { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "qlkh", FieldCode = fieldCode, RoleCode = "ceo", PermissionLevel = "A" });
-                fieldPermissions.Add(new FieldPermission { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "qlkh", FieldCode = fieldCode, RoleCode = "admin", PermissionLevel = "W" });
+                fieldPermissions.Add(new FieldPermission { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "qlkh", FieldCode = fieldCode, RoleCode = "marketing_sales", PermissionLevel = marketingSales });
+                fieldPermissions.Add(new FieldPermission { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "qlkh", FieldCode = fieldCode, RoleCode = "ip_executive", PermissionLevel = ipExecutive });
+                fieldPermissions.Add(new FieldPermission { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "qlkh", FieldCode = fieldCode, RoleCode = "ip_manager", PermissionLevel = ipManager });
+                fieldPermissions.Add(new FieldPermission { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "qlkh", FieldCode = fieldCode, RoleCode = "accountant", PermissionLevel = accountant });
+                fieldPermissions.Add(new FieldPermission { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "qlkh", FieldCode = fieldCode, RoleCode = "director", PermissionLevel = director });
+                fieldPermissions.Add(new FieldPermission { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "qlkh", FieldCode = fieldCode, RoleCode = "ceo", PermissionLevel = ceo });
+                fieldPermissions.Add(new FieldPermission { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "qlkh", FieldCode = fieldCode, RoleCode = "admin", PermissionLevel = "A" });
             }
 
-            void AddQlcpPermissions(string fieldCode)
+            string MapQlcpPermission(string value)
             {
-                fieldPermissions.Add(new FieldPermission { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "qlcp", FieldCode = fieldCode, RoleCode = "marketing_sales", PermissionLevel = "W" });
-                fieldPermissions.Add(new FieldPermission { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "qlcp", FieldCode = fieldCode, RoleCode = "ip_executive", PermissionLevel = "W" });
-                fieldPermissions.Add(new FieldPermission { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "qlcp", FieldCode = fieldCode, RoleCode = "ip_manager", PermissionLevel = "R" });
-                fieldPermissions.Add(new FieldPermission { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "qlcp", FieldCode = fieldCode, RoleCode = "accountant", PermissionLevel = "W" });
-                fieldPermissions.Add(new FieldPermission { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "qlcp", FieldCode = fieldCode, RoleCode = "director", PermissionLevel = "R" });
-                fieldPermissions.Add(new FieldPermission { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "qlcp", FieldCode = fieldCode, RoleCode = "ceo", PermissionLevel = "R" });
-                fieldPermissions.Add(new FieldPermission { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "qlcp", FieldCode = fieldCode, RoleCode = "admin", PermissionLevel = "W" });
+                if (string.Equals(value, "CREATE", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(value, "UPDATE", StringComparison.OrdinalIgnoreCase))
+                {
+                    return "W";
+                }
+
+                if (string.Equals(value, "READ", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(value, "SYSTEM", StringComparison.OrdinalIgnoreCase))
+                {
+                    return "R";
+                }
+
+                if (string.Equals(value, "APPROVE", StringComparison.OrdinalIgnoreCase))
+                {
+                    return "A";
+                }
+
+                if (string.Equals(value, "NONE", StringComparison.OrdinalIgnoreCase))
+                {
+                    return "N";
+                }
+
+                return "N";
+            }
+
+            void AddQlcpFieldPermissions(
+                string fieldCode,
+                string nhanVien,
+                string quanLy,
+                string keToan,
+                string giamDoc,
+                string tongGiamDoc)
+            {
+                var nv = MapQlcpPermission(nhanVien);
+                var ql = MapQlcpPermission(quanLy);
+                var kt = MapQlcpPermission(keToan);
+                var gd = MapQlcpPermission(giamDoc);
+                var ceo = MapQlcpPermission(tongGiamDoc);
+
+                fieldPermissions.Add(new FieldPermission { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "qlcp", FieldCode = fieldCode, RoleCode = "marketing_sales", PermissionLevel = nv });
+                fieldPermissions.Add(new FieldPermission { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "qlcp", FieldCode = fieldCode, RoleCode = "ip_executive", PermissionLevel = nv });
+                fieldPermissions.Add(new FieldPermission { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "qlcp", FieldCode = fieldCode, RoleCode = "ip_manager", PermissionLevel = ql });
+                fieldPermissions.Add(new FieldPermission { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "qlcp", FieldCode = fieldCode, RoleCode = "accountant", PermissionLevel = kt });
+                fieldPermissions.Add(new FieldPermission { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "qlcp", FieldCode = fieldCode, RoleCode = "director", PermissionLevel = gd });
+                fieldPermissions.Add(new FieldPermission { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "qlcp", FieldCode = fieldCode, RoleCode = "ceo", PermissionLevel = ceo });
+                fieldPermissions.Add(new FieldPermission { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "qlcp", FieldCode = fieldCode, RoleCode = "admin", PermissionLevel = "A" });
             }
 
             void AddDashboardPermissions(string fieldCode)
@@ -666,7 +930,7 @@ public class DatabaseSeeder : IHostedService
                 fieldPermissions.Add(new FieldPermission { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "dashboard", FieldCode = fieldCode, RoleCode = "accountant", PermissionLevel = "R" });
                 fieldPermissions.Add(new FieldPermission { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "dashboard", FieldCode = fieldCode, RoleCode = "director", PermissionLevel = "A" });
                 fieldPermissions.Add(new FieldPermission { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "dashboard", FieldCode = fieldCode, RoleCode = "ceo", PermissionLevel = "A" });
-                fieldPermissions.Add(new FieldPermission { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "dashboard", FieldCode = fieldCode, RoleCode = "admin", PermissionLevel = "R" });
+                fieldPermissions.Add(new FieldPermission { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "dashboard", FieldCode = fieldCode, RoleCode = "admin", PermissionLevel = "A" });
             }
 
             void AddUsersPermissions(string fieldCode)
@@ -677,98 +941,93 @@ public class DatabaseSeeder : IHostedService
                 fieldPermissions.Add(new FieldPermission { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "users", FieldCode = fieldCode, RoleCode = "accountant", PermissionLevel = "N" });
                 fieldPermissions.Add(new FieldPermission { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "users", FieldCode = fieldCode, RoleCode = "director", PermissionLevel = "R" });
                 fieldPermissions.Add(new FieldPermission { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "users", FieldCode = fieldCode, RoleCode = "ceo", PermissionLevel = "R" });
-                fieldPermissions.Add(new FieldPermission { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "users", FieldCode = fieldCode, RoleCode = "admin", PermissionLevel = "W" });
+                fieldPermissions.Add(new FieldPermission { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "users", FieldCode = fieldCode, RoleCode = "admin", PermissionLevel = "A" });
             }
 
-            string[] qlkhFieldCodes =
-            {
-                "name",
-                "businessScale",
-                "taxCode",
-                "address",
-                "representativeName",
-                "representativePosition",
-                "idNumber",
-                "phone",
-                "email",
-                "contactPerson",
-                "contactPhone",
-                "contactEmail",
-                "businessNeeds",
-                "potentialLevel",
-                "priority",
-                "sourceClassification",
-                "nsnnSource",
-                "brandName",
-                "productsServices",
-                "ipGroup",
-                "owner",
-                "protectionTerritory",
-                "authorization",
-                "filingStatus",
-                "filingDate",
-                "applicationCode",
-                "issueDate",
-                "expiryDate",
-                "applicationReviewStatus",
-                "processingDeadline",
-                "renewalCycle",
-                "renewalDate",
-                "reminderDate",
-                "reminderStatus",
-                "consultingStatus",
-                "contractStatus",
-                "contractNumber",
-                "contractValue",
-                "stateFee",
-                "additionalFee",
-                "createdBy",
-                "updatedBy",
-                "updatedAt",
-                "documentLink"
-            };
+            AddQlkhFieldPermissions("name", "W", "W", "W", "R", "A", "A", "W");
+            AddQlkhFieldPermissions("businessScale", "W", "W", "W", "N", "A", "A", "W");
+            AddQlkhFieldPermissions("taxCode", "W", "W", "W", "R", "A", "A", "W");
+            AddQlkhFieldPermissions("address", "W", "W", "W", "R", "A", "A", "W");
+            AddQlkhFieldPermissions("representativeName", "W", "W", "W", "R", "A", "A", "W");
+            AddQlkhFieldPermissions("representativePosition", "W", "W", "W", "N", "A", "A", "W");
+            AddQlkhFieldPermissions("idNumber", "N", "W", "W", "N", "A", "A", "W");
+            AddQlkhFieldPermissions("phone", "W", "W", "W", "N", "A", "A", "W");
+            AddQlkhFieldPermissions("email", "W", "W", "W", "N", "A", "A", "W");
+            AddQlkhFieldPermissions("contactPerson", "W", "W", "W", "N", "A", "A", "W");
+            AddQlkhFieldPermissions("contactPhone", "W", "W", "W", "N", "A", "A", "W");
+            AddQlkhFieldPermissions("contactEmail", "W", "W", "W", "N", "A", "A", "W");
 
-            foreach (var code in qlkhFieldCodes)
-            {
-                AddQlkhPermissions(code);
-            }
+            AddQlkhFieldPermissions("businessNeeds", "W", "W", "W", "N", "A", "A", "W");
+            AddQlkhFieldPermissions("potentialLevel", "W", "W", "A", "N", "A", "A", "W");
+            AddQlkhFieldPermissions("priority", "W", "W", "A", "N", "A", "A", "W");
+            AddQlkhFieldPermissions("sourceClassification", "W", "W", "W", "N", "A", "A", "W");
+            AddQlkhFieldPermissions("nsnnSource", "W", "W", "W", "R", "A", "A", "W");
 
-            string[] qlcpFieldCodes =
-            {
-                "requester",
-                "department",
-                "priority",
-                "requestDate",
-                "projectCode",
-                "content",
-                "description",
-                "transactionType",
-                "voucherType",
-                "transactionObject",
-                "note",
-                "amountBeforeTax",
-                "taxRate",
-                "totalAmount",
-                "taxCode",
-                "voucherNumber",
-                "voucherDate",
-                "attachment",
-                "paymentMethod",
-                "accountNumber",
-                "bank",
-                "paymentStatus",
-                "managerApproval",
-                "directorApproval",
-                "accountantReview",
-                "adjustReason",
-                "rejectionReason",
-                "riskFlag"
-            };
+            AddQlkhFieldPermissions("brandName", "R", "W", "A", "N", "A", "A", "W");
+            AddQlkhFieldPermissions("productsServices", "R", "W", "A", "N", "A", "A", "W");
+            AddQlkhFieldPermissions("ipGroup", "N", "W", "A", "N", "A", "A", "W");
+            AddQlkhFieldPermissions("owner", "N", "W", "A", "N", "A", "A", "W");
+            AddQlkhFieldPermissions("protectionTerritory", "N", "W", "A", "N", "A", "A", "W");
+            AddQlkhFieldPermissions("authorization", "N", "W", "A", "N", "A", "A", "W");
 
-            foreach (var code in qlcpFieldCodes)
-            {
-                AddQlcpPermissions(code);
-            }
+            AddQlkhFieldPermissions("filingStatus", "N", "W", "A", "N", "A", "A", "W");
+            AddQlkhFieldPermissions("filingDate", "N", "W", "A", "N", "A", "A", "W");
+            AddQlkhFieldPermissions("applicationCode", "N", "W", "A", "N", "A", "A", "W");
+            AddQlkhFieldPermissions("issueDate", "N", "W", "A", "N", "A", "A", "W");
+            AddQlkhFieldPermissions("expiryDate", "N", "W", "A", "N", "A", "A", "W");
+            AddQlkhFieldPermissions("applicationReviewStatus", "N", "W", "A", "N", "A", "A", "W");
+            AddQlkhFieldPermissions("processingDeadline", "N", "W", "A", "N", "A", "A", "W");
+
+            AddQlkhFieldPermissions("renewalCycle", "N", "W", "A", "N", "A", "A", "W");
+            AddQlkhFieldPermissions("renewalDate", "N", "W", "A", "N", "A", "A", "W");
+            AddQlkhFieldPermissions("reminderDate", "N", "W", "A", "N", "A", "A", "W");
+            AddQlkhFieldPermissions("reminderStatus", "N", "W", "A", "N", "A", "A", "W");
+
+            AddQlkhFieldPermissions("consultingStatus", "R", "W", "W", "N", "A", "A", "W");
+            AddQlkhFieldPermissions("contractStatus", "R", "W", "W", "R", "A", "A", "W");
+            AddQlkhFieldPermissions("contractNumber", "N", "W", "W", "W", "A", "A", "W");
+            AddQlkhFieldPermissions("contractValue", "N", "W", "W", "W", "A", "A", "W");
+            AddQlkhFieldPermissions("stateFee", "N", "W", "W", "W", "A", "A", "W");
+            AddQlkhFieldPermissions("additionalFee", "N", "W", "W", "W", "A", "A", "W");
+
+            AddQlkhFieldPermissions("createdBy", "R", "R", "R", "R", "R", "R", "W");
+            AddQlkhFieldPermissions("updatedBy", "R", "R", "R", "R", "R", "R", "W");
+            AddQlkhFieldPermissions("updatedAt", "R", "R", "R", "R", "R", "R", "W");
+            AddQlkhFieldPermissions("documentLink", "R", "W", "A", "R", "W", "W", "W");
+
+            AddQlcpFieldPermissions("requester", "CREATE", "READ", "READ", "READ", "READ");
+            AddQlcpFieldPermissions("department", "CREATE", "READ", "READ", "READ", "READ");
+            AddQlcpFieldPermissions("priority", "CREATE", "UPDATE", "READ", "READ", "READ");
+            AddQlcpFieldPermissions("requestDate", "CREATE", "READ", "UPDATE", "READ", "READ");
+            AddQlcpFieldPermissions("projectCode", "CREATE", "READ", "READ", "READ", "READ");
+
+            AddQlcpFieldPermissions("content", "CREATE", "UPDATE", "READ", "READ", "READ");
+            AddQlcpFieldPermissions("description", "CREATE", "UPDATE", "READ", "READ", "READ");
+            AddQlcpFieldPermissions("transactionType", "CREATE", "UPDATE", "READ", "READ", "READ");
+            AddQlcpFieldPermissions("voucherType", "CREATE", "UPDATE", "READ", "READ", "READ");
+            AddQlcpFieldPermissions("transactionObject", "CREATE", "UPDATE", "READ", "READ", "READ");
+            AddQlcpFieldPermissions("note", "CREATE", "UPDATE", "UPDATE", "READ", "READ");
+
+            AddQlcpFieldPermissions("amountBeforeTax", "CREATE", "READ", "UPDATE", "READ", "READ");
+            AddQlcpFieldPermissions("taxRate", "CREATE", "READ", "UPDATE", "READ", "READ");
+            AddQlcpFieldPermissions("totalAmount", "SYSTEM", "SYSTEM", "SYSTEM", "READ", "READ");
+            AddQlcpFieldPermissions("taxCode", "CREATE", "NONE", "UPDATE", "READ", "READ");
+
+            AddQlcpFieldPermissions("voucherNumber", "CREATE", "READ", "UPDATE", "READ", "READ");
+            AddQlcpFieldPermissions("voucherDate", "CREATE", "READ", "UPDATE", "READ", "READ");
+            AddQlcpFieldPermissions("attachment", "CREATE", "READ", "UPDATE", "READ", "READ");
+
+            AddQlcpFieldPermissions("paymentMethod", "CREATE", "NONE", "UPDATE", "READ", "READ");
+            AddQlcpFieldPermissions("accountNumber", "CREATE", "NONE", "UPDATE", "READ", "READ");
+            AddQlcpFieldPermissions("bank", "CREATE", "NONE", "UPDATE", "READ", "READ");
+            AddQlcpFieldPermissions("paymentStatus", "CREATE", "NONE", "UPDATE", "READ", "READ");
+
+            AddQlcpFieldPermissions("managerApproval", "READ", "UPDATE", "READ", "READ", "READ");
+            AddQlcpFieldPermissions("directorApproval", "READ", "READ", "READ", "UPDATE", "READ");
+            AddQlcpFieldPermissions("accountantReview", "READ", "READ", "UPDATE", "READ", "READ");
+            AddQlcpFieldPermissions("adjustReason", "NONE", "CREATE", "UPDATE", "UPDATE", "READ");
+            AddQlcpFieldPermissions("rejectionReason", "NONE", "CREATE", "NONE", "UPDATE", "READ");
+            AddQlcpFieldPermissions("riskFlag", "NONE", "READ", "READ", "UPDATE", "UPDATE");
 
             string[] dashboardFieldCodes =
             {

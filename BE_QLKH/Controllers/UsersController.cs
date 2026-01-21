@@ -182,6 +182,11 @@ public class UsersController : ControllerBase
 
         input.LegacyId = maxLegacyId != null ? maxLegacyId.LegacyId + 1 : 1;
 
+        if (!string.IsNullOrEmpty(input.OffboardDate))
+        {
+            input.Status = "inactive";
+        }
+
         await _users.InsertOneAsync(input);
 
         return Ok(new
@@ -247,6 +252,11 @@ public class UsersController : ControllerBase
         input.CreatedAt = user.CreatedAt;
         input.CreatedBy = user.CreatedBy;
         input.UpdatedAt = DateTime.UtcNow.ToString("yyyy-MM-dd");
+
+        if (!string.IsNullOrEmpty(input.OffboardDate))
+        {
+            input.Status = "inactive";
+        }
 
         await _users.ReplaceOneAsync(u => u.Id == user.Id, input);
 

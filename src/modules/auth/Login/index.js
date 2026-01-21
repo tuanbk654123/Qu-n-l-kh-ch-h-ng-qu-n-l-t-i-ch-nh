@@ -60,10 +60,10 @@ const Login = () => {
         </Form>
 
         <div className="login-info">
-          <p><strong>Thông tin đăng nhập mẫu:</strong></p>
-          <p>Admin: username: <code>admin</code>, password: <code>admin123</code></p>
-          <p>Manager: username: <code>manager1</code>, password: <code>manager123</code></p>
-          <p>Staff: username: <code>staff1</code>, password: <code>staff123</code></p>
+          <p><strong>Thông tin đăng nhập mẫu (Mật khẩu: 123456):</strong></p>
+          <p>Admin: <code>admin</code> | CEO: <code>ceo</code></p>
+          <p>Quản lý: <code>manager</code> | Kế toán: <code>accountant</code></p>
+          <p>Sale: <code>sales</code> | Chuyên viên: <code>executive</code></p>
         </div>
       </Card>
     </div>

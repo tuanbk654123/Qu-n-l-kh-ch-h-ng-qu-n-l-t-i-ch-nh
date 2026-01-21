@@ -40,39 +40,71 @@ public class Cost
     public decimal AmountBeforeTax { get; set; }
 
     [BsonElement("tax_rate")]
-    public string TaxRate { get; set; } = string.Empty;
+    public string? TaxRate { get; set; }
 
     [BsonElement("total_amount")]
     public decimal TotalAmount { get; set; }
 
     [BsonElement("payment_method")]
-    public string PaymentMethod { get; set; } = string.Empty;
+    public string? PaymentMethod { get; set; }
 
     [BsonElement("bank")]
-    public string Bank { get; set; } = string.Empty;
+    public string? Bank { get; set; }
 
     [BsonElement("account_number")]
-    public string AccountNumber { get; set; } = string.Empty;
+    public string? AccountNumber { get; set; }
 
     [BsonElement("voucher_type")]
-    public string VoucherType { get; set; } = string.Empty;
+    public string? VoucherType { get; set; }
 
     [BsonElement("voucher_number")]
-    public string VoucherNumber { get; set; } = string.Empty;
+    public string? VoucherNumber { get; set; }
 
     [BsonElement("voucher_date")]
-    public string VoucherDate { get; set; } = string.Empty;
+    public string? VoucherDate { get; set; }
+
+    [BsonElement("transaction_date")]
+    public string? TransactionDate { get; set; }
 
     [BsonElement("attachment")]
-    public string Attachment { get; set; } = string.Empty;
+    public string? Attachment { get; set; }
 
     [BsonElement("payment_status")]
     public string PaymentStatus { get; set; } = string.Empty;
 
     [BsonElement("rejection_reason")]
-    public string RejectionReason { get; set; } = string.Empty;
+    public string? RejectionReason { get; set; }
+
+    [BsonElement("approver_manager")]
+    public string? ApproverManager { get; set; }
+
+    [BsonElement("approver_director")]
+    public string? ApproverDirector { get; set; }
+
+    [BsonElement("accountant_review")]
+    public string? AccountantReview { get; set; }
+
+    [BsonElement("note")]
+    public string? Note { get; set; }
+
+    [BsonElement("created_by_user_id")]
+    public int CreatedByUserId { get; set; }
+
+    [BsonElement("status_history")]
+    public List<CostStatusHistory> StatusHistory { get; set; } = new();
+}
+
+public class CostStatusHistory
+{
+    [BsonElement("status")]
+    public string Status { get; set; } = string.Empty;
+
+    [BsonElement("changed_by_user_id")]
+    public int ChangedByUserId { get; set; }
+
+    [BsonElement("changed_at")]
+    public string ChangedAt { get; set; } = string.Empty;
 
     [BsonElement("note")]
     public string Note { get; set; } = string.Empty;
 }
-

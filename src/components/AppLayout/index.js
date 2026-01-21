@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Layout, Menu, Dropdown, Avatar, Space } from 'antd';
+import { Layout, Menu, Dropdown, Avatar, Space, Badge, Popover, List, Typography, Button, Empty } from 'antd';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   DashboardOutlined,
@@ -12,17 +12,22 @@ import {
   LogoutOutlined,
   FileTextOutlined,
   SafetyCertificateOutlined,
+  BellOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../../context/AuthContext';
+import { useNotification } from '../../context/NotificationContext';
 import './index.css';
 
 const { Header, Sider, Content } = Layout;
+const { Text } = Typography;
 
 const AppLayout = ({ children }) => {
   const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout, canAccessUsersModule, canAccessPermissions } = useAuth();
+  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotification();
+  const [visible, setVisible] = useState(false);
 
   const handleMenuClick = ({ key }) => {
     navigate(key);
@@ -32,6 +37,66 @@ const AppLayout = ({ children }) => {
     await logout();
     navigate('/login');
   };
+
+  const handleNotificationClick = (item) => {
+    if (!item.isRead) {
+      markAsRead(item.id);
+    }
+    // Navigate based on type
+    if (item.type === 'CostApproval' && item.relatedId) {
+      navigate('/costs', { state: { openCostId: item.relatedId } });
+    }
+    setVisible(false);
+  };
+
+  const notificationContent = (
+    <div style={{ width: 350, maxHeight: 400, overflow: 'auto' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f0f0f0' }}>
+        <Text strong>Thông báo</Text>
+        {unreadCount > 0 && (
+          <Button type="link" size="small" onClick={markAllAsRead}>
+            Đánh dấu đã đọc tất cả
+          </Button>
+        )}
+      </div>
+      <List
+        itemLayout="horizontal"
+        dataSource={notifications}
+        locale={{ emptyText: <Empty description="Không có thông báo nào" /> }}
+        renderItem={(item) => (
+          <List.Item 
+            className={`notification-item ${!item.isRead ? 'unread' : ''}`}
+            onClick={() => handleNotificationClick(item)}
+            style={{ 
+              cursor: 'pointer', 
+              background: item.isRead ? '#fff' : '#e6f7ff',
+              padding: '8px',
+              borderBottom: '1px solid #f0f0f0'
+            }}
+          >
+            <List.Item.Meta
+              title={
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Text strong={!item.isRead}>{item.title}</Text>
+                  <Text type="secondary" style={{ fontSize: '12px' }}>
+                    {new Date(item.createdAt).toLocaleDateString()}
+                  </Text>
+                </div>
+              }
+              description={
+                <div>
+                  <div style={{ marginBottom: 4 }}>{item.message}</div>
+                  <Text type="secondary" style={{ fontSize: '11px' }}>
+                    {new Date(item.createdAt).toLocaleTimeString()}
+                  </Text>
+                </div>
+              }
+            />
+          </List.Item>
+        )}
+      />
+    </div>
+  );
 
   const getMenuItems = () => {
     const items = [
@@ -125,16 +190,31 @@ const AppLayout = ({ children }) => {
           <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 600 }}>
             Hệ thống Quản lý Công ty
           </h1>
-          <Space>
-            <span style={{ color: '#666' }}>
-              {user?.fullName || user?.username}
-            </span>
-            <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
-              <Avatar
-                style={{ backgroundColor: '#1890ff', cursor: 'pointer' }}
-                icon={<UserOutlined />}
-              />
-            </Dropdown>
+          <Space size="large">
+            <Popover
+              content={notificationContent}
+              trigger="click"
+              visible={visible}
+              onVisibleChange={setVisible}
+              placement="bottomRight"
+              overlayClassName="notification-popover"
+            >
+              <Badge count={unreadCount} overflowCount={99}>
+                <BellOutlined style={{ fontSize: '20px', cursor: 'pointer' }} />
+              </Badge>
+            </Popover>
+
+            <Space>
+              <span style={{ color: '#666' }}>
+                {user?.fullName || user?.username}
+              </span>
+              <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
+                <Avatar
+                  style={{ backgroundColor: '#1890ff', cursor: 'pointer' }}
+                  icon={<UserOutlined />}
+                />
+              </Dropdown>
+            </Space>
           </Space>
         </Header>
         <Content style={{ margin: '24px', background: '#fff' }}>

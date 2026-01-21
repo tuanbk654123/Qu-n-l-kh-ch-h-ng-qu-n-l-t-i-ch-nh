@@ -5,6 +5,7 @@
   "private": true,
   "dependencies": {
     "@ant-design/icons": "^5.2.6",
+    "@microsoft/signalr": "^10.0.0",
     "antd": "^5.12.8",
     "axios": "^1.6.2",
     "axios-mock-adapter": "^1.22.0",

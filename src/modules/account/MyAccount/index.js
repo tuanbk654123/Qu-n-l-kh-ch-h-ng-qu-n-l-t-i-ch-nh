@@ -41,7 +41,7 @@ const MyAccount = () => {
 
   const getRoleText = (role) => {
     const roles = {
-      admin: 'Hành chính',
+      admin: 'Admin',
       marketing_sales: 'Marketing/Sales',
       ip_executive: 'IP Executive',
       ip_manager: 'IP Manager',

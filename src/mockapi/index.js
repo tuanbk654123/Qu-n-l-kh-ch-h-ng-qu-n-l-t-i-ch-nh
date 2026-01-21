@@ -6,6 +6,7 @@ import { tasksData } from './fakedb/tasks';
 import { transactionsData } from './fakedb/transactions';
 import { usersData, setCurrentUser, getCurrentUser } from './fakedb/users';
 import { costsData } from './fakedb/costs';
+import { notificationsData } from './fakedb/notifications';
 import { roles, qlkhFields, qlcpFields, initialPermissions } from './fakedb/permissions';
 
 const mock = new MockAdapter(axios, { delayResponse: 500 });
@@ -514,6 +515,78 @@ mock.onDelete(/\/api\/costs\/\d+/).reply((config) => {
     return [200, { message: 'Cost deleted' }];
   }
   return [404, { message: 'Cost not found' }];
+});
+
+// API Thông báo
+mock.onGet('/api/notifications').reply(() => {
+  const currentUser = getCurrentUser();
+  if (!currentUser) return [401, { message: 'Unauthorized' }];
+
+  // Lọc thông báo của user hiện tại
+  // Trong mock này ta giả định user id=2 (Manager) nhận được thông báo
+  // Thực tế sẽ filter theo currentUser.id
+  
+  // Để test dễ dàng, ta trả về tất cả thông báo nếu là admin hoặc manager, 
+  // hoặc filter đúng logic nếu muốn chặt chẽ.
+  // Ở đây mình filter đơn giản:
+  const userNotifs = notificationsData.filter(n => n.userId === currentUser.id || n.userId === currentUser.legacyId); // Support both id formats
+  
+  // Sort mới nhất trước
+  userNotifs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+  const unreadCount = userNotifs.filter(n => !n.isRead).length;
+
+  return [200, {
+    notifications: userNotifs,
+    unreadCount
+  }];
+});
+
+mock.onPost('/api/notifications/create').reply((config) => {
+  const { title, message, type, relatedId, userIds } = JSON.parse(config.data);
+  const now = new Date().toISOString();
+  
+  // Tạo thông báo cho danh sách userIds
+  const newNotifs = [];
+  userIds.forEach(uid => {
+     const id = Math.max(...notificationsData.map(n => n.id), 0) + 1 + newNotifs.length;
+     const notif = {
+       id,
+       userId: uid,
+       title,
+       message,
+       type,
+       relatedId,
+       isRead: false,
+       createdAt: now
+     };
+     notificationsData.unshift(notif); // Add to beginning
+     newNotifs.push(notif);
+  });
+
+  return [200, { message: 'Notifications created', count: newNotifs.length }];
+});
+
+mock.onPost(/\/api\/notifications\/mark-read\/\d+/).reply((config) => {
+  const id = parseInt(config.url.split('/').pop());
+  const notif = notificationsData.find(n => n.id === id);
+  if (notif) {
+    notif.isRead = true;
+    return [200, { message: 'Marked as read' }];
+  }
+  return [404, { message: 'Notification not found' }];
+});
+
+mock.onPost('/api/notifications/mark-all-read').reply(() => {
+  const currentUser = getCurrentUser();
+  if (currentUser) {
+    notificationsData.forEach(n => {
+        if (n.userId === currentUser.id) {
+            n.isRead = true;
+        }
+    });
+  }
+  return [200, { message: 'All marked as read' }];
 });
 
 // API Phân quyền

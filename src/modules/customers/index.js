@@ -23,6 +23,7 @@ import {
 } from '@ant-design/icons';
 import axios from 'axios';
 import dayjs from 'dayjs';
+import { handleApiError } from '../../utils/errorHelper';
 import './index.css';
 
 const Customers = () => {
@@ -59,7 +60,7 @@ const Customers = () => {
       setCustomers(response.data.customers);
       setTotal(response.data.customerCount);
     } catch (error) {
-      message.error('Lỗi khi tải dữ liệu khách hàng');
+      handleApiError(error, 'Lỗi khi tải dữ liệu khách hàng');
     } finally {
       setLoading(false);
     }
@@ -111,7 +112,7 @@ const Customers = () => {
       message.success('Xóa khách hàng thành công');
       fetchCustomers();
     } catch (error) {
-      message.error('Lỗi khi xóa khách hàng');
+      handleApiError(error, 'Lỗi khi xóa khách hàng');
     }
   };
 
@@ -141,7 +142,7 @@ const Customers = () => {
       form.resetFields();
       fetchCustomers();
     } catch (error) {
-      message.error('Lỗi khi lưu khách hàng');
+      handleApiError(error, 'Lỗi khi lưu khách hàng');
     }
   };
 
@@ -173,24 +174,28 @@ const Customers = () => {
       dataIndex: 'company',
       key: 'company',
       width: 150,
+      hidden: !canReadField('brandName'),
     },
     {
       title: 'Người đại diện',
       dataIndex: 'representativeName',
       key: 'representativeName',
       width: 150,
+      hidden: !canReadField('representativeName'),
     },
     {
       title: 'Email',
       dataIndex: 'email',
       key: 'email',
       width: 180,
+      hidden: !canReadField('email'),
     },
     {
       title: 'Số điện thoại',
       dataIndex: 'phone',
       key: 'phone',
       width: 120,
+      hidden: !canReadField('phone'),
     },
     {
       title: 'Trạng thái',
@@ -208,18 +213,21 @@ const Customers = () => {
       dataIndex: 'potentialLevel',
       key: 'potentialLevel',
       width: 150,
+      hidden: !canReadField('potentialLevel'),
     },
     {
       title: 'Ưu tiên',
       dataIndex: 'priority',
       key: 'priority',
       width: 100,
+      hidden: !canReadField('priority'),
     },
     {
       title: 'Tình trạng tư vấn',
       dataIndex: 'consultingStatus',
       key: 'consultingStatus',
       width: 150,
+      hidden: !canReadField('consultingStatus'),
     },
     {
       title: 'Thao tác',
@@ -253,7 +261,7 @@ const Customers = () => {
   const tabItems = [
     {
       key: '1',
-      label: 'Thông tin chung',
+      label: 'I. Nhóm thông tin chung',
       children: (
         <Row gutter={16}>
           <Col span={12}>
@@ -364,7 +372,7 @@ const Customers = () => {
     },
     {
       key: '2',
-      label: 'Nhu cầu & SHTT',
+      label: 'II. Nhu cầu - Lead - Tiềm năng',
       children: (
         <Row gutter={16}>
           <Col span={12}>
@@ -380,6 +388,66 @@ const Customers = () => {
               </Select>
             </Form.Item>
           </Col>
+          <Col span={12}>
+            <Form.Item
+              name="potentialLevel"
+              label="Mức độ tiềm năng"
+            >
+              <Select allowClear disabled={!canEditField('potentialLevel')}>
+                <Option value="Cao">Cao</Option>
+                <Option value="Trung bình">Trung bình</Option>
+                <Option value="Thấp">Thấp</Option>
+              </Select>
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item
+              name="priority"
+              label="Ưu tiên"
+            >
+              <Select allowClear disabled={!canEditField('priority')}>
+                <Option value="Mức 1">Mức 1</Option>
+                <Option value="Mức 2">Mức 2</Option>
+                <Option value="Mức 3">Mức 3</Option>
+                <Option value="Mức 4">Mức 4</Option>
+              </Select>
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item
+              name="sourceClassification"
+              label="Phân loại nguồn"
+            >
+              <Select allowClear disabled={!canEditField('sourceClassification')}>
+                <Option value="NSNN">NSNN</Option>
+                <Option value="Vãng lai">Vãng lai</Option>
+                <Option value="Đối tác">Đối tác</Option>
+                <Option value="Sự kiện">Sự kiện</Option>
+              </Select>
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item
+              name="nsnnSource"
+              label="Nguồn NSNN"
+            >
+              <Select allowClear disabled={!canEditField('nsnnSource')}>
+                <Option value="TACs">TACs</Option>
+                <Option value="Sở TC Huế">Sở TC Huế</Option>
+                <Option value="Sở CT Quảng Trị">Sở CT Quảng Trị</Option>
+                <Option value="Sở CT Hậu Giang">Sở CT Hậu Giang</Option>
+                <Option value="Chi cục PTNT Lâm Đồng">Chi cục PTNT Lâm Đồng</Option>
+              </Select>
+            </Form.Item>
+          </Col>
+        </Row>
+      ),
+    },
+    {
+      key: '3',
+      label: 'III. Thông tin SHTT cốt lõi',
+      children: (
+        <Row gutter={16}>
           <Col span={12}>
             <Form.Item
               name="brandName"
@@ -433,58 +501,12 @@ const Customers = () => {
           </Col>
           <Col span={12}>
             <Form.Item
-              name="createdBy"
-              label="Người tạo"
+              name="authorization"
+              label="Uỷ quyền"
             >
-              <Input disabled={!canEditField('createdBy')} />
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item
-              name="startDate"
-              label="Ngày bắt đầu"
-            >
-              <DatePicker style={{ width: '100%' }} disabled={!canEditField('startDate')} />
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item
-              name="endDate"
-              label="Ngày kết thúc"
-            >
-              <DatePicker style={{ width: '100%' }} disabled={!canEditField('endDate')} />
-            </Form.Item>
-          </Col>
-          <Col span={8}>
-            <Form.Item
-              name="implementationDays"
-              label="Số ngày triển khai"
-            >
-              <Input type="number" disabled={!canEditField('implementationDays')} />
-            </Form.Item>
-          </Col>
-          <Col span={8}>
-            <Form.Item
-              name="potentialLevel"
-              label="Mức độ tiềm năng"
-            >
-              <Select allowClear disabled={!canEditField('potentialLevel')}>
-                <Option value="Cao">Cao</Option>
-                <Option value="Trung bình">Trung bình</Option>
-                <Option value="Thấp">Thấp</Option>
-              </Select>
-            </Form.Item>
-          </Col>
-          <Col span={8}>
-            <Form.Item
-              name="priority"
-              label="Ưu tiên"
-            >
-              <Select allowClear disabled={!canEditField('priority')}>
-                <Option value="Mức 1">Mức 1</Option>
-                <Option value="Mức 2">Mức 2</Option>
-                <Option value="Mức 3">Mức 3</Option>
-                <Option value="Mức 4">Mức 4</Option>
+              <Select allowClear disabled={!canEditField('authorization')}>
+                <Option value="Chưa có">Chưa có</Option>
+                <Option value="Đã có">Đã có</Option>
               </Select>
             </Form.Item>
           </Col>
@@ -492,8 +514,129 @@ const Customers = () => {
       ),
     },
     {
-      key: '3',
-      label: 'Hợp đồng & Nộp đơn',
+      key: '4',
+      label: 'IV. Hồ sơ đơn – văn bằng – pháp lý',
+      children: (
+        <Row gutter={16}>
+          <Col span={12}>
+            <Form.Item
+              name="filingStatus"
+              label="Tình trạng nộp đơn"
+            >
+              <Select allowClear disabled={!canEditField('filingStatus')}>
+                <Option value="Chưa triển khai">Chưa triển khai</Option>
+                <Option value="Đang viết hồ sơ">Đang viết hồ sơ</Option>
+                <Option value="Đã viết hồ sơ">Đã viết hồ sơ</Option>
+              </Select>
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item
+              name="filingDate"
+              label="Ngày nộp đơn"
+            >
+              <DatePicker style={{ width: '100%' }} disabled={!canEditField('filingDate')} />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item
+              name="applicationCode"
+              label="Mã đơn/Công bố/Văn bằng"
+            >
+              <Input disabled={!canEditField('applicationCode')} />
+            </Form.Item>
+          </Col>
+          <Col span={6}>
+            <Form.Item
+              name="issueDate"
+              label="Ngày cấp"
+            >
+              <DatePicker style={{ width: '100%' }} disabled={!canEditField('issueDate')} />
+            </Form.Item>
+          </Col>
+          <Col span={6}>
+            <Form.Item
+              name="expiryDate"
+              label="Ngày hết hạn"
+            >
+              <DatePicker style={{ width: '100%' }} disabled={!canEditField('expiryDate')} />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item
+              name="applicationReviewStatus"
+              label="Tình trạng xét duyệt đơn"
+            >
+              <Select allowClear disabled={!canEditField('applicationReviewStatus')}>
+                <Option value="Đang xét duyệt">Đang xét duyệt</Option>
+                <Option value="Có OA chưa phản hồi">Có OA chưa phản hồi</Option>
+                <Option value="Được duyệt">Được duyệt</Option>
+                <Option value="Có OA đã phản hồi">Có OA đã phản hồi</Option>
+                <Option value="Từ chối">Từ chối</Option>
+                <Option value="Hết hạn">Hết hạn</Option>
+              </Select>
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item
+              name="processingDeadline"
+              label="Hạn xử lý"
+            >
+              <DatePicker style={{ width: '100%' }} disabled={!canEditField('processingDeadline')} />
+            </Form.Item>
+          </Col>
+        </Row>
+      ),
+    },
+    {
+      key: '5',
+      label: 'V. Gia hạn & nhắc việc',
+      children: (
+        <Row gutter={16}>
+          <Col span={12}>
+            <Form.Item
+              name="renewalCycle"
+              label="Chu kỳ gia hạn"
+            >
+              <Select allowClear disabled={!canEditField('renewalCycle')}>
+                <Option value="5 năm">5 năm</Option>
+                <Option value="10 năm">10 năm</Option>
+              </Select>
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item
+              name="renewalDate"
+              label="Ngày cần gia hạn"
+            >
+              <DatePicker style={{ width: '100%' }} disabled={!canEditField('renewalDate')} />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item
+              name="reminderDate"
+              label="Ngày nhắc hẹn (trước 3 tháng)"
+            >
+              <DatePicker style={{ width: '100%' }} disabled={!canEditField('reminderDate')} />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item
+              name="reminderStatus"
+              label="Trạng thái nhắc"
+            >
+              <Select allowClear disabled={!canEditField('reminderStatus')}>
+                <Option value="Chưa nhắc">Chưa nhắc</Option>
+                <Option value="Đã nhắc">Đã nhắc</Option>
+              </Select>
+            </Form.Item>
+          </Col>
+        </Row>
+      ),
+    },
+    {
+      key: '6',
+      label: 'VI. Hợp đồng – tài chính',
       children: (
         <Row gutter={16}>
           <Col span={12}>
@@ -546,171 +689,52 @@ const Customers = () => {
               <Input type="number" disabled={!canEditField('stateFee')} />
             </Form.Item>
           </Col>
-          <Col span={12}>
+          <Col span={8}>
             <Form.Item
-              name="filingStatus"
-              label="Tình trạng nộp đơn"
+              name="additionalFee"
+              label="Phí phát sinh"
             >
-              <Select allowClear disabled={!canEditField('filingStatus')}>
-                <Option value="Chưa triển khai">Chưa triển khai</Option>
-                <Option value="Đang viết hồ sơ">Đang viết hồ sơ</Option>
-                <Option value="Đã viết hồ sơ">Đã viết hồ sơ</Option>
-              </Select>
+              <Input type="number" disabled={!canEditField('additionalFee')} />
             </Form.Item>
           </Col>
-          <Col span={12}>
+          <Col span={8}>
             <Form.Item
-              name="filingDate"
-              label="Ngày nộp đơn"
+              name="startDate"
+              label="Ngày bắt đầu"
             >
-              <DatePicker style={{ width: '100%' }} disabled={!canEditField('filingDate')} />
+              <DatePicker style={{ width: '100%' }} disabled={!canEditField('startDate')} />
             </Form.Item>
           </Col>
-          <Col span={12}>
+          <Col span={8}>
             <Form.Item
-              name="applicationCode"
-              label="Mã đơn/Công bố/Văn bằng"
+              name="endDate"
+              label="Ngày kết thúc"
             >
-              <Input disabled={!canEditField('applicationCode')} />
+              <DatePicker style={{ width: '100%' }} disabled={!canEditField('endDate')} />
             </Form.Item>
           </Col>
-          <Col span={6}>
+          <Col span={8}>
             <Form.Item
-              name="issueDate"
-              label="Ngày cấp"
+              name="implementationDays"
+              label="Số ngày triển khai"
             >
-              <DatePicker style={{ width: '100%' }} disabled={!canEditField('issueDate')} />
-            </Form.Item>
-          </Col>
-          <Col span={6}>
-            <Form.Item
-              name="expiryDate"
-              label="Ngày hết hạn"
-            >
-              <DatePicker style={{ width: '100%' }} disabled={!canEditField('expiryDate')} />
+              <Input type="number" disabled={!canEditField('implementationDays')} />
             </Form.Item>
           </Col>
         </Row>
       ),
     },
     {
-      key: '4',
-      label: 'Nguồn & Gia hạn',
+      key: '7',
+      label: 'VII. Hệ thống – kiểm soát',
       children: (
         <Row gutter={16}>
           <Col span={12}>
             <Form.Item
-              name="sourceClassification"
-              label="Phân loại nguồn"
+              name="createdBy"
+              label="Người tạo"
             >
-              <Select allowClear disabled={!canEditField('sourceClassification')}>
-                <Option value="NSNN">NSNN</Option>
-                <Option value="Vãng lai">Vãng lai</Option>
-                <Option value="Đối tác">Đối tác</Option>
-                <Option value="Sự kiện">Sự kiện</Option>
-              </Select>
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item
-              name="nsnnSource"
-              label="Nguồn NSNN"
-            >
-              <Select allowClear disabled={!canEditField('nsnnSource')}>
-                <Option value="TACs">TACs</Option>
-                <Option value="Sở TC Huế">Sở TC Huế</Option>
-                <Option value="Sở CT Quảng Trị">Sở CT Quảng Trị</Option>
-                <Option value="Sở CT Hậu Giang">Sở CT Hậu Giang</Option>
-                <Option value="Chi cục PTNT Lâm Đồng">Chi cục PTNT Lâm Đồng</Option>
-              </Select>
-            </Form.Item>
-          </Col>
-          <Col span={24}>
-            <Form.Item
-              name="documentLink"
-              label="Link hồ sơ giấy tờ"
-            >
-              <Input disabled={!canEditField('documentLink')} />
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item
-              name="authorization"
-              label="Uỷ quyền"
-            >
-              <Select allowClear disabled={!canEditField('authorization')}>
-                <Option value="Chưa có">Chưa có</Option>
-                <Option value="Đã có">Đã có</Option>
-              </Select>
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item
-              name="applicationReviewStatus"
-              label="Tình trạng xét duyệt đơn"
-            >
-              <Select allowClear disabled={!canEditField('applicationReviewStatus')}>
-                <Option value="Đang xét duyệt">Đang xét duyệt</Option>
-                <Option value="Có OA chưa phản hồi">Có OA chưa phản hồi</Option>
-                <Option value="Được duyệt">Được duyệt</Option>
-                <Option value="Có OA đã phản hồi">Có OA đã phản hồi</Option>
-                <Option value="Từ chối">Từ chối</Option>
-                <Option value="Hết hạn">Hết hạn</Option>
-              </Select>
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item
-              name="processingDeadline"
-              label="Hạn xử lý"
-            >
-              <DatePicker style={{ width: '100%' }} disabled={!canEditField('processingDeadline')} />
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item
-              name="renewalCycle"
-              label="Chu kỳ gia hạn"
-            >
-              <Select allowClear disabled={!canEditField('renewalCycle')}>
-                <Option value="5 năm">5 năm</Option>
-                <Option value="10 năm">10 năm</Option>
-              </Select>
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item
-              name="renewalDate"
-              label="Ngày cần gia hạn"
-            >
-              <DatePicker style={{ width: '100%' }} disabled={!canEditField('renewalDate')} />
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item
-              name="reminderDate"
-              label="Ngày nhắc hẹn (trước 3 tháng)"
-            >
-              <DatePicker style={{ width: '100%' }} disabled={!canEditField('reminderDate')} />
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item
-              name="reminderStatus"
-              label="Trạng thái nhắc"
-            >
-              <Select allowClear disabled={!canEditField('reminderStatus')}>
-                <Option value="Chưa nhắc">Chưa nhắc</Option>
-                <Option value="Đã nhắc">Đã nhắc</Option>
-              </Select>
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item
-              name="additionalFee"
-              label="Phí phát sinh"
-            >
-              <Input type="number" disabled={!canEditField('additionalFee')} />
+              <Input disabled={!canEditField('createdBy')} />
             </Form.Item>
           </Col>
           <Col span={12}>
@@ -727,6 +751,14 @@ const Customers = () => {
               label="Ngày cập nhật"
             >
               <DatePicker style={{ width: '100%' }} disabled={!canEditField('updatedAt')} />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item
+              name="documentLink"
+              label="Link hồ sơ giấy tờ"
+            >
+              <Input disabled={!canEditField('documentLink')} />
             </Form.Item>
           </Col>
         </Row>

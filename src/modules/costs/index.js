@@ -8,6 +8,7 @@ import {
   Modal,
   Form,
   message,
+  notification,
   Popconfirm,
   Select,
   DatePicker,
@@ -26,17 +27,24 @@ import {
   UploadOutlined,
   DollarOutlined,
   FileTextOutlined,
+  CheckOutlined,
+  CloseOutlined,
 } from '@ant-design/icons';
 import axios from 'axios';
 import dayjs from 'dayjs';
 import { useAuth } from '../../context/AuthContext';
+import { useNotification } from '../../context/NotificationContext';
+import { handleApiError } from '../../utils/errorHelper';
+import { useLocation } from 'react-router-dom';
 import './index.css';
 
 const { Option } = Select;
 const { TextArea } = Input;
 
 const Costs = () => {
+  const location = useLocation();
   const { user } = useAuth();
+  const { refreshNotifications } = useNotification();
   const [costs, setCosts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
@@ -49,6 +57,68 @@ const Costs = () => {
   const [form] = Form.useForm();
 
   const [fieldPermissions, setFieldPermissions] = useState({});
+  const [rejectReasonModalVisible, setRejectReasonModalVisible] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
+
+  useEffect(() => {
+    if (location.state?.openCostId) {
+      const costId = location.state.openCostId;
+      axios.get(`/api/costs/${costId}`)
+        .then(response => {
+           handleEdit(response.data);
+           window.history.replaceState({}, document.title);
+        })
+        .catch(error => {
+          console.error(error);
+          message.error('Không thể tải thông tin phiếu chi');
+        });
+    }
+  }, [location.state]);
+
+  const handleApproveAction = () => {
+    let updates = {};
+    if (canEditField('approverManager')) {
+      updates = { approverManager: 'Đã duyệt', paymentStatus: 'Quản lý duyệt' };
+    } else if (canEditField('approverDirector')) {
+      updates = { approverDirector: 'Đã duyệt', paymentStatus: 'Giám đốc duyệt' };
+    }
+
+    if (Object.keys(updates).length > 0) {
+      form.setFieldsValue(updates);
+      Modal.confirm({
+        title: 'Xác nhận duyệt',
+        content: 'Bạn có chắc chắn muốn duyệt phiếu chi này?',
+        okText: 'Duyệt',
+        cancelText: 'Hủy',
+        onOk: () => form.submit(),
+      });
+    } else {
+      message.error('Bạn không có quyền duyệt phiếu này');
+    }
+  };
+
+  const handleRejectAction = () => {
+    setRejectReason('');
+    setRejectReasonModalVisible(true);
+  };
+
+  const confirmReject = () => {
+    if (!rejectReason.trim()) {
+      message.error('Vui lòng nhập lý do từ chối');
+      return;
+    }
+
+    let updates = { rejectionReason: rejectReason, paymentStatus: 'Huỷ' };
+    if (canEditField('approverManager')) {
+      updates.approverManager = 'Từ chối';
+    } else if (canEditField('approverDirector')) {
+      updates.approverDirector = 'Từ chối';
+    }
+
+    form.setFieldsValue(updates);
+    setRejectReasonModalVisible(false);
+    form.submit();
+  };
 
   const mapFieldToPermissionKey = (field) => {
     const mapping = {
@@ -80,7 +150,7 @@ const Costs = () => {
       setCosts(response.data.costs);
       setTotal(response.data.costCount);
     } catch (error) {
-      message.error('Lỗi khi tải dữ liệu chi phí');
+      handleApiError(error, 'Lỗi khi tải dữ liệu chi phí');
     } finally {
       setLoading(false);
     }
@@ -130,7 +200,7 @@ const Costs = () => {
       message.success('Xóa phiếu chi thành công');
       fetchCosts();
     } catch (error) {
-      message.error('Lỗi khi xóa phiếu chi');
+      handleApiError(error, 'Lỗi khi xóa phiếu chi');
     }
   };
 
@@ -146,15 +216,119 @@ const Costs = () => {
       if (editingCost) {
         await axios.put(`/api/costs/${editingCost.id}`, formattedValues);
         message.success('Cập nhật phiếu chi thành công');
+
+        // Logic xử lý thông báo và email
+        const newStatus = values.paymentStatus;
+        const oldStatus = editingCost.paymentStatus;
+        let notifData = null;
+
+        // 1. Nếu bị HUỶ (Từ chối)
+        if (newStatus === 'Huỷ' && oldStatus !== 'Huỷ') {
+             // Thông báo cho Người yêu cầu (Requester - ID 5) và Manager (ID 2)
+             const userIdsToNotify = [5, 2]; 
+
+             notifData = {
+                title: 'Phiếu chi bị từ chối',
+                message: `Phiếu chi #${editingCost.id} đã bị từ chối. Lý do: ${values.rejectionReason}`,
+                type: 'CostApproval',
+                relatedId: editingCost.id.toString(),
+                userIds: userIdsToNotify
+             };
+
+             notification.info({
+                 message: '📧 Hệ thống Email (Gmail)',
+                 description: `Đã gửi email TỪ CHỐI đến Requester và Manager. Lý do: ${values.rejectionReason}`,
+                 placement: 'topRight',
+                 duration: 5,
+             });
+        } 
+        // 2. Nếu Manager duyệt -> Chuyển Giám đốc
+        else if (newStatus === 'Quản lý duyệt' && oldStatus !== 'Quản lý duyệt') {
+             // Gửi cho Giám đốc (User ID 3)
+             notifData = {
+                title: 'Phiếu chi cần duyệt (GĐ)',
+                message: `Manager đã duyệt phiếu #${editingCost.id}. Vui lòng xem xét.`,
+                type: 'CostApproval',
+                relatedId: editingCost.id.toString(),
+                userIds: [3] // CEO/Director
+             };
+
+             notification.success({
+                message: '📧 Hệ thống Email (Gmail)',
+                description: 'Đã gửi email yêu cầu phê duyệt cho Giám đốc.',
+                placement: 'topRight',
+                duration: 5,
+             });
+        } 
+        // 3. Nếu Giám đốc duyệt -> Chuyển Kế toán
+        else if (newStatus === 'Giám đốc duyệt' && oldStatus !== 'Giám đốc duyệt') {
+             // Gửi cho Kế toán (User ID 4)
+             notifData = {
+                title: 'Phiếu chi đã được duyệt',
+                message: `Giám đốc đã duyệt phiếu #${editingCost.id}. Vui lòng thực hiện chi tiền.`,
+                type: 'CostApproval',
+                relatedId: editingCost.id.toString(),
+                userIds: [4] // Accountant
+             };
+
+             notification.success({
+                message: '📧 Hệ thống Email (Gmail)',
+                description: 'Đã gửi email thông báo cho Kế toán.',
+                placement: 'topRight',
+                duration: 5,
+             });
+        }
+        // 4. Nếu Kế toán hoàn thành (Đã thanh toán)
+        else if (newStatus === 'Đã thanh toán' && oldStatus !== 'Đã thanh toán') {
+             // Gửi cho Requester (5) và Manager (2)
+             notifData = {
+                title: 'Phiếu chi đã thanh toán',
+                message: `Phiếu chi #${editingCost.id} đã được thanh toán hoàn tất.`,
+                type: 'CostApproval',
+                relatedId: editingCost.id.toString(),
+                userIds: [5, 2]
+             };
+
+             notification.success({
+                message: '📧 Hệ thống Email (Gmail)',
+                description: 'Đã gửi email xác nhận thanh toán cho Nhân viên và Quản lý.',
+                placement: 'topRight',
+                duration: 5,
+             });
+        }
+
+        if (notifData) {
+            await axios.post('/api/notifications/create', notifData);
+            refreshNotifications(); // Cập nhật chuông ngay lập tức
+        }
+
       } else {
-        await axios.post('/api/costs', formattedValues);
+        const res = await axios.post('/api/costs', formattedValues);
+        const newCostId = res.data.id;
         message.success('Tạo phiếu chi thành công');
+        
+        // Gửi thông báo cho Manager (User ID 2)
+        await axios.post('/api/notifications/create', {
+            title: 'Phiếu chi mới cần duyệt',
+            message: `Có phiếu chi mới #${newCostId} cần phê duyệt.`,
+            type: 'CostApproval',
+            relatedId: newCostId.toString(),
+            userIds: [2] // Manager
+        });
+        refreshNotifications();
+
+        notification.success({
+            message: '📧 Hệ thống Email (Gmail)',
+            description: 'Đã gửi email yêu cầu phê duyệt cho Quản lý.',
+            placement: 'topRight',
+            duration: 5,
+        });
       }
       setIsModalVisible(false);
       form.resetFields();
       fetchCosts();
     } catch (error) {
-      message.error('Lỗi khi lưu phiếu chi');
+      handleApiError(error, 'Lỗi khi lưu phiếu chi');
     }
   };
 
@@ -857,11 +1031,32 @@ const Costs = () => {
       />
 
       <Modal
-        title={editingCost ? 'Cập nhật phiếu' : 'Tạo phiếu mới'}
+        title={editingCost ? 'Cập nhật phiếu chi' : 'Tạo phiếu chi mới'}
         open={isModalVisible}
         onCancel={() => setIsModalVisible(false)}
-        footer={null}
         width={800}
+        footer={[
+          <Button key="back" onClick={() => setIsModalVisible(false)}>
+            Đóng
+          </Button>,
+          (editingCost && (canEditField('approverManager') || canEditField('approverDirector'))) ? (
+            <>
+              <Button key="reject" danger onClick={handleRejectAction}>
+                Từ chối
+              </Button>
+              <Button key="submit" onClick={form.submit} style={{ marginRight: 8 }}>
+                Lưu
+              </Button>
+              <Button key="approve" type="primary" onClick={handleApproveAction}>
+                Duyệt
+              </Button>
+            </>
+          ) : (
+            <Button key="submit" type="primary" onClick={form.submit}>
+              {editingCost ? "Lưu" : "Gửi duyệt"}
+            </Button>
+          )
+        ]}
       >
         <Form
           form={form}
@@ -889,16 +1084,23 @@ const Costs = () => {
               {renderPaymentDeadline()}
             </Tabs.TabPane>
           </Tabs>
-
-          <Form.Item style={{ marginTop: 24, textAlign: 'right' }}>
-            <Space>
-              <Button onClick={() => setIsModalVisible(false)}>Hủy</Button>
-              <Button type="primary" htmlType="submit">
-                {editingCost ? 'Cập nhật' : 'Lưu phiếu'}
-              </Button>
-            </Space>
-          </Form.Item>
         </Form>
+      </Modal>
+
+      <Modal
+        title="Lý do từ chối"
+        open={rejectReasonModalVisible}
+        onOk={confirmReject}
+        onCancel={() => setRejectReasonModalVisible(false)}
+        okText="Xác nhận từ chối"
+        cancelText="Hủy"
+      >
+        <Input.TextArea 
+          rows={4} 
+          value={rejectReason} 
+          onChange={(e) => setRejectReason(e.target.value)} 
+          placeholder="Nhập lý do từ chối..." 
+        />
       </Modal>
     </div>
   );
