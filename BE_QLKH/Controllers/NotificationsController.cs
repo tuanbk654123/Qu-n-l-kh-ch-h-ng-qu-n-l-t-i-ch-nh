@@ -95,4 +95,47 @@ public class NotificationsController : ControllerBase
         
         return Ok(new { message = "Marked all as read" });
     }
+
+    [HttpPost("create")]
+    public async Task<ActionResult<object>> CreateNotification([FromBody] CreateNotificationRequest request)
+    {
+        var createdCount = 0;
+        foreach (var userId in request.UserIds)
+        {
+             var notif = new Notification
+             {
+                 UserId = userId,
+                 Title = request.Title,
+                 Message = request.Message,
+                 Type = request.Type,
+                 RelatedId = request.RelatedId,
+                 IsRead = false,
+                 CreatedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")
+             };
+             
+             await _notifications.InsertOneAsync(notif);
+             createdCount++;
+             
+             // Real-time
+             try 
+             {
+                await _hubContext.Clients.Group(userId.ToString()).SendAsync("ReceiveNotification", notif);
+             }
+             catch
+             {
+                 // Ignore SignalR errors
+             }
+        }
+        
+        return Ok(new { message = "Notifications created", count = createdCount });
+    }
+}
+
+public class CreateNotificationRequest
+{
+    public string Title { get; set; } = string.Empty;
+    public string Message { get; set; } = string.Empty;
+    public string Type { get; set; } = string.Empty;
+    public string RelatedId { get; set; } = string.Empty;
+    public List<int> UserIds { get; set; } = new();
 }

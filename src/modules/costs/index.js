@@ -188,6 +188,7 @@ const Costs = () => {
     const formattedRecord = {
       ...record,
       requestDate: record.requestDate ? dayjs(record.requestDate) : null,
+      transactionDate: record.transactionDate ? dayjs(record.transactionDate) : null,
       voucherDate: record.voucherDate ? dayjs(record.voucherDate) : null,
     };
     form.setFieldsValue(formattedRecord);
@@ -222,17 +223,35 @@ const Costs = () => {
         const oldStatus = editingCost.paymentStatus;
         let notifData = null;
 
+        // Lấy thông tin người tạo phiếu để biết gửi thông báo cho ai (Nhân viên & Manager của họ)
+        let creator = null;
+        try {
+            if (editingCost && editingCost.createdBy) {
+                const res = await axios.get(`/api/users/${editingCost.createdBy}`);
+                creator = res.data;
+            }
+        } catch (e) {
+            console.error('Error fetching creator info', e);
+        }
+
         // 1. Nếu bị HUỶ (Từ chối)
         if (newStatus === 'Huỷ' && oldStatus !== 'Huỷ') {
-             // Thông báo cho Người yêu cầu (Requester - ID 5) và Manager (ID 2)
-             const userIdsToNotify = [5, 2]; 
+             // Thông báo cho Người yêu cầu (Requester) và Manager của họ
+             const userIdsToNotify = [];
+             if (creator) {
+                userIdsToNotify.push(creator.id);
+                if (creator.managerId) userIdsToNotify.push(creator.managerId);
+             } else {
+                 userIdsToNotify.push(editingCost.createdBy);
+                 userIdsToNotify.push(2); // Fallback
+             }
 
              notifData = {
                 title: 'Phiếu chi bị từ chối',
                 message: `Phiếu chi #${editingCost.id} đã bị từ chối. Lý do: ${values.rejectionReason}`,
                 type: 'CostApproval',
                 relatedId: editingCost.id.toString(),
-                userIds: userIdsToNotify
+                userIds: [...new Set(userIdsToNotify)]
              };
 
              notification.info({
@@ -244,13 +263,16 @@ const Costs = () => {
         } 
         // 2. Nếu Manager duyệt -> Chuyển Giám đốc
         else if (newStatus === 'Quản lý duyệt' && oldStatus !== 'Quản lý duyệt') {
-             // Gửi cho Giám đốc (User ID 3)
+             // Gửi cho Manager của người đang duyệt (tức là Giám đốc)
+             // user là người đang thao tác (Manager)
+             const directorId = user.managerId || 3; // Fallback to CEO
+
              notifData = {
                 title: 'Phiếu chi cần duyệt (GĐ)',
                 message: `Manager đã duyệt phiếu #${editingCost.id}. Vui lòng xem xét.`,
                 type: 'CostApproval',
                 relatedId: editingCost.id.toString(),
-                userIds: [3] // CEO/Director
+                userIds: [directorId]
              };
 
              notification.success({
@@ -280,13 +302,22 @@ const Costs = () => {
         }
         // 4. Nếu Kế toán hoàn thành (Đã thanh toán)
         else if (newStatus === 'Đã thanh toán' && oldStatus !== 'Đã thanh toán') {
-             // Gửi cho Requester (5) và Manager (2)
+             // Gửi cho Requester và Manager
+             const userIdsToNotify = [];
+             if (creator) {
+                userIdsToNotify.push(creator.id);
+                if (creator.managerId) userIdsToNotify.push(creator.managerId);
+             } else {
+                 userIdsToNotify.push(editingCost.createdBy);
+                 userIdsToNotify.push(2);
+             }
+
              notifData = {
                 title: 'Phiếu chi đã thanh toán',
                 message: `Phiếu chi #${editingCost.id} đã được thanh toán hoàn tất.`,
                 type: 'CostApproval',
                 relatedId: editingCost.id.toString(),
-                userIds: [5, 2]
+                userIds: [...new Set(userIdsToNotify)]
              };
 
              notification.success({
@@ -307,19 +338,21 @@ const Costs = () => {
         const newCostId = res.data.id;
         message.success('Tạo phiếu chi thành công');
         
-        // Gửi thông báo cho Manager (User ID 2)
+        // Gửi thông báo cho Manager trực tiếp
+        const managerId = user.managerId || 2; // Fallback to default manager
+
         await axios.post('/api/notifications/create', {
             title: 'Phiếu chi mới cần duyệt',
             message: `Có phiếu chi mới #${newCostId} cần phê duyệt.`,
             type: 'CostApproval',
             relatedId: newCostId.toString(),
-            userIds: [2] // Manager
+            userIds: [managerId]
         });
         refreshNotifications();
 
         notification.success({
             message: '📧 Hệ thống Email (Gmail)',
-            description: 'Đã gửi email yêu cầu phê duyệt cho Quản lý.',
+            description: 'Đã gửi email yêu cầu phê duyệt cho Quản lý trực tiếp.',
             placement: 'topRight',
             duration: 5,
         });

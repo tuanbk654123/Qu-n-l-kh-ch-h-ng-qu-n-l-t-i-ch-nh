@@ -454,8 +454,22 @@ const Users = () => {
 
           <Row gutter={16}>
             <Col span={8}>
-              <Form.Item name="managerId" label="Cấp quản lý trực tiếp (User_ID)">
-                <Input />
+              <Form.Item name="managerId" label="Cấp quản lý trực tiếp">
+                <Select
+                  showSearch
+                  allowClear
+                  placeholder="Chọn quản lý"
+                  optionFilterProp="children"
+                  filterOption={(input, option) =>
+                    (option?.children ?? '').toLowerCase().includes(input.toLowerCase())
+                  }
+                >
+                  {users.map((u) => (
+                    <Option key={u.id} value={u.id}>
+                      {u.fullName} - {u.position}
+                    </Option>
+                  ))}
+                </Select>
               </Form.Item>
             </Col>
             <Col span={8}>

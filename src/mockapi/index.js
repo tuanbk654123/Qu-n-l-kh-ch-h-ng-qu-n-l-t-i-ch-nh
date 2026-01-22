@@ -82,7 +82,7 @@ mock.onGet('/api/users').reply((config) => {
 
 mock.onGet(/\/api\/users\/\d+/).reply((config) => {
   const currentUser = getCurrentUser();
-  if (!currentUser || currentUser.role !== 'admin') {
+  if (!currentUser) {
     return [403, { message: 'Không có quyền truy cập' }];
   }
 
