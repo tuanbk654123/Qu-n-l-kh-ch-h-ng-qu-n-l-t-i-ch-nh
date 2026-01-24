@@ -92,6 +92,9 @@ public class Cost
 
     [BsonElement("status_history")]
     public List<CostStatusHistory> StatusHistory { get; set; } = new();
+
+    [BsonElement("notification_recipients")]
+    public List<int> NotificationRecipients { get; set; } = new();
 }
 
 public class CostStatusHistory

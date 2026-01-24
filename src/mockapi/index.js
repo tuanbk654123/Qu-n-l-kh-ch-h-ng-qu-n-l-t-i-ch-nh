@@ -44,8 +44,8 @@ mock.onGet('/api/auth/me').reply(() => {
 // API Quản lý nhân viên (chỉ admin)
 mock.onGet('/api/users').reply((config) => {
   const currentUser = getCurrentUser();
-  if (!currentUser || currentUser.role !== 'admin') {
-    return [403, { message: 'Không có quyền truy cập' }];
+  if (!currentUser) {
+    return [401, { message: 'Chưa đăng nhập' }];
   }
 
   const { search, page = 1, role } = config.params || {};

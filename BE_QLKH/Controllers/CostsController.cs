@@ -173,13 +173,24 @@ public class CostsController : ControllerBase
 
         await _costs.InsertOneAsync(input);
 
-        // Notify Managers
-        await SendNotificationToRole("quan_ly", "Phiếu chi mới cần duyệt", 
-            $"{userName} đã tạo phiếu chi #{input.LegacyId}. Vui lòng duyệt.", "CostApproval", input.LegacyId.ToString());
-        
-        // Also notify Admin
-        await SendNotificationToRole("admin", "Phiếu chi mới cần duyệt", 
-            $"{userName} đã tạo phiếu chi #{input.LegacyId}. Vui lòng duyệt.", "CostApproval", input.LegacyId.ToString());
+        // Notify Selected Recipients
+        if (input.NotificationRecipients != null && input.NotificationRecipients.Count > 0)
+        {
+            foreach (var recipientId in input.NotificationRecipients)
+            {
+                 await CreateAndSendNotification(recipientId, "Phiếu chi mới cần duyệt", 
+                    $"{userName} đã tạo phiếu chi #{input.LegacyId}. Vui lòng duyệt.", "CostApproval", input.LegacyId.ToString());
+            }
+        }
+        else
+        {
+            // Fallback: Notify Managers and Admin if no specific recipients selected
+            await SendNotificationToRole("quan_ly", "Phiếu chi mới cần duyệt", 
+                $"{userName} đã tạo phiếu chi #{input.LegacyId}. Vui lòng duyệt.", "CostApproval", input.LegacyId.ToString());
+            
+            await SendNotificationToRole("admin", "Phiếu chi mới cần duyệt", 
+                $"{userName} đã tạo phiếu chi #{input.LegacyId}. Vui lòng duyệt.", "CostApproval", input.LegacyId.ToString());
+        }
 
         return Ok(new { message = "Tạo phiếu thành công", id = input.LegacyId });
     }

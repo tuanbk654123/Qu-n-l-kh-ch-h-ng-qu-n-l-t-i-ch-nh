@@ -59,6 +59,18 @@ const Costs = () => {
   const [fieldPermissions, setFieldPermissions] = useState({});
   const [rejectReasonModalVisible, setRejectReasonModalVisible] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
+  const [users, setUsers] = useState([]);
+
+  useEffect(() => {
+    // Fetch users for notification dropdown
+    axios.get('/api/users')
+      .then(res => {
+        if (res.data && res.data.users) {
+          setUsers(res.data.users);
+        }
+      })
+      .catch(err => console.error('Error fetching users:', err));
+  }, []);
 
   useEffect(() => {
     if (location.state?.openCostId) {
@@ -338,24 +350,17 @@ const Costs = () => {
         const newCostId = res.data.id;
         message.success('Tạo phiếu chi thành công');
         
-        // Gửi thông báo cho Manager trực tiếp
-        const managerId = user.managerId || 2; // Fallback to default manager
-
-        await axios.post('/api/notifications/create', {
-            title: 'Phiếu chi mới cần duyệt',
-            message: `Có phiếu chi mới #${newCostId} cần phê duyệt.`,
-            type: 'CostApproval',
-            relatedId: newCostId.toString(),
-            userIds: [managerId]
-        });
+        // Gửi thông báo cho những người được chọn
+        if (values.notificationRecipients && values.notificationRecipients.length > 0) {
+          // Backend đã tự động gửi thông báo dựa trên notificationRecipients
+          notification.success({
+              message: '📧 Hệ thống Email (Gmail)',
+              description: `Đã gửi email yêu cầu phê duyệt cho ${values.notificationRecipients.length} người nhận.`,
+              placement: 'topRight',
+              duration: 5,
+          });
+        }
         refreshNotifications();
-
-        notification.success({
-            message: '📧 Hệ thống Email (Gmail)',
-            description: 'Đã gửi email yêu cầu phê duyệt cho Quản lý trực tiếp.',
-            placement: 'topRight',
-            duration: 5,
-        });
       }
       setIsModalVisible(false);
       form.resetFields();
@@ -601,6 +606,30 @@ const Costs = () => {
             </Form.Item>
           </Col>
         )}
+      </Row>
+      <Row gutter={16}>
+        <Col span={24}>
+            <Form.Item
+                name="notificationRecipients"
+                label="Gửi thông báo đến"
+                rules={[{ required: true, message: 'Vui lòng chọn người nhận thông báo' }]}
+            >
+                <Select
+                    mode="multiple"
+                    placeholder="Chọn người nhận thông báo"
+                    optionFilterProp="children"
+                    filterOption={(input, option) =>
+                        String(option.children).toLowerCase().includes(input.toLowerCase())
+                    }
+                >
+                    {users.map(u => (
+                        <Option key={u.id} value={u.id}>
+                            {`${u.fullName} (${u.username})`}
+                        </Option>
+                    ))}
+                </Select>
+            </Form.Item>
+        </Col>
       </Row>
       <Row gutter={16}>
         {canReadField('taxCode') && (
