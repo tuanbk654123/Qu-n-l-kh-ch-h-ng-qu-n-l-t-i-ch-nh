@@ -40,6 +40,7 @@ import './index.css';
 
 const { Option } = Select;
 const { TextArea } = Input;
+const API_BASE_URL = 'http://localhost:58457';
 
 const Costs = () => {
   const location = useLocation();
@@ -88,25 +89,23 @@ const Costs = () => {
   }, [location.state]);
 
   const handleApproveAction = () => {
-    let updates = {};
-    if (canEditField('approverManager')) {
-      updates = { approverManager: 'Đã duyệt', paymentStatus: 'Quản lý duyệt' };
-    } else if (canEditField('approverDirector')) {
-      updates = { approverDirector: 'Đã duyệt', paymentStatus: 'Giám đốc duyệt' };
-    }
-
-    if (Object.keys(updates).length > 0) {
-      form.setFieldsValue(updates);
-      Modal.confirm({
-        title: 'Xác nhận duyệt',
-        content: 'Bạn có chắc chắn muốn duyệt phiếu chi này?',
-        okText: 'Duyệt',
-        cancelText: 'Hủy',
-        onOk: () => form.submit(),
-      });
-    } else {
-      message.error('Bạn không có quyền duyệt phiếu này');
-    }
+    Modal.confirm({
+      title: 'Xác nhận duyệt',
+      content: 'Bạn có chắc chắn muốn duyệt phiếu chi này?',
+      okText: 'Duyệt',
+      cancelText: 'Hủy',
+      onOk: async () => {
+        try {
+            const res = await axios.post(`/api/costs/${editingCost.id}/approve`);
+            message.success(res.data.message || 'Duyệt thành công');
+            setIsModalVisible(false);
+            fetchCosts();
+            refreshNotifications();
+        } catch (error) {
+            handleApiError(error, 'Lỗi khi duyệt phiếu');
+        }
+      },
+    });
   };
 
   const handleRejectAction = () => {
@@ -202,6 +201,7 @@ const Costs = () => {
       requestDate: record.requestDate ? dayjs(record.requestDate) : null,
       transactionDate: record.transactionDate ? dayjs(record.transactionDate) : null,
       voucherDate: record.voucherDate ? dayjs(record.voucherDate) : null,
+      attachments: Array.isArray(record.attachments) ? record.attachments : (record.attachment ? [{ path: record.attachment, name: 'Đính kèm' }] : [])
     };
     form.setFieldsValue(formattedRecord);
     setIsModalVisible(true);
@@ -750,6 +750,29 @@ const Costs = () => {
     </>
   );
 
+  const handleUpload = async (options) => {
+    const { onSuccess, onError, file } = options;
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const response = await axios.post('/api/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      
+      onSuccess(response.data);
+      message.success('Tải file thành công');
+      const current = form.getFieldValue('attachments') || [];
+      const next = [...current, { path: response.data.path, name: response.data.originalName }];
+      form.setFieldsValue({ attachments: next });
+    } catch (err) {
+      onError({ err });
+      message.error('Tải file thất bại');
+    }
+  };
+
   const renderVoucherInfo = () => (
     <>
       <Row gutter={16}>
@@ -817,12 +840,46 @@ const Costs = () => {
       </Row>
       {canReadField('attachment') && (
         <Form.Item
-          name="attachment"
           label="File đính kèm"
+          shouldUpdate={(prev, curr) => JSON.stringify(prev.attachments) !== JSON.stringify(curr.attachments)}
         >
-          <Upload disabled={!canEditField('attachment')}>
-            <Button icon={<UploadOutlined />}>Tải lên file</Button>
-          </Upload>
+          {({ getFieldValue }) => {
+            const items = getFieldValue('attachments') || [];
+            return (
+              <Space direction="vertical" style={{ width: '100%' }}>
+                <Form.Item name="attachments" noStyle hidden>
+                  <Input />
+                </Form.Item>
+                <Upload 
+                  multiple
+                  customRequest={handleUpload}
+                  showUploadList={false}
+                  disabled={!canEditField('attachment')}
+                >
+                  <Button icon={<UploadOutlined />}>Tải lên file</Button>
+                </Upload>
+                {items.length > 0 && (
+                  <Space direction="vertical">
+                    {items.map((it, idx) => {
+                      const full = it.path?.startsWith('http') ? it.path : `${API_BASE_URL}${it.path}`;
+                      return (
+                        <Space key={`${it.path}-${idx}`}>
+                          <a href={full} target="_blank" rel="noopener noreferrer">
+                            <Tag icon={<FileTextOutlined />} color="blue">{it.name || 'Tệp đính kèm'}</Tag>
+                          </a>
+                          <Button size="small" danger onClick={() => {
+                            const next = [...items];
+                            next.splice(idx, 1);
+                            form.setFieldsValue({ attachments: next });
+                          }}>Xóa</Button>
+                        </Space>
+                      );
+                    })}
+                  </Space>
+                )}
+              </Space>
+            );
+          }}
         </Form.Item>
       )}
     </>

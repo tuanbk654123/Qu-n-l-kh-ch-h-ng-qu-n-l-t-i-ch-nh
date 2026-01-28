@@ -91,6 +91,8 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors("AllowFrontend");
 
+app.UseStaticFiles(); // Enable serving static files (uploads)
+
 app.UseAuthentication();
 app.UseAuthorization();
 

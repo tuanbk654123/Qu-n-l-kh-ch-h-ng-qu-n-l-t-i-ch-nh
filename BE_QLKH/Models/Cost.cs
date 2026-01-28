@@ -68,6 +68,9 @@ public class Cost
 
     [BsonElement("attachment")]
     public string? Attachment { get; set; }
+    
+    [BsonElement("attachments")]
+    public List<AttachmentItem> Attachments { get; set; } = new();
 
     [BsonElement("payment_status")]
     public string PaymentStatus { get; set; } = string.Empty;
@@ -110,4 +113,13 @@ public class CostStatusHistory
 
     [BsonElement("note")]
     public string Note { get; set; } = string.Empty;
+}
+
+public class AttachmentItem
+{
+    [BsonElement("path")]
+    public string Path { get; set; } = string.Empty;
+    
+    [BsonElement("name")]
+    public string Name { get; set; } = string.Empty;
 }

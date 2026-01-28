@@ -19,17 +19,20 @@ public class CostsController : ControllerBase
     private readonly IMongoCollection<User> _users;
     private readonly IMongoCollection<Notification> _notifications;
     private readonly IHubContext<NotificationsHub> _hubContext;
+    private readonly ILogger<CostsController> _logger;
 
     public CostsController(
         IMongoClient client, 
         IOptions<MongoDbSettings> options,
-        IHubContext<NotificationsHub> hubContext)
+        IHubContext<NotificationsHub> hubContext,
+        ILogger<CostsController> logger)
     {
         var db = client.GetDatabase(options.Value.DatabaseName);
         _costs = db.GetCollection<Cost>("costs");
         _users = db.GetCollection<User>("users");
         _notifications = db.GetCollection<Notification>("notifications");
         _hubContext = hubContext;
+        _logger = logger;
     }
 
     [HttpGet]
@@ -92,6 +95,7 @@ public class CostsController : ControllerBase
             voucherNumber = c.VoucherNumber,
             voucherDate = c.VoucherDate,
             attachment = c.Attachment,
+            attachments = c.Attachments,
             paymentStatus = c.PaymentStatus,
             rejectionReason = c.RejectionReason,
             note = c.Note,
@@ -134,6 +138,7 @@ public class CostsController : ControllerBase
             voucherNumber = cost.VoucherNumber,
             voucherDate = cost.VoucherDate,
             attachment = cost.Attachment,
+            attachments = cost.Attachments,
             paymentStatus = cost.PaymentStatus,
             rejectionReason = cost.RejectionReason,
             note = cost.Note,
@@ -184,9 +189,23 @@ public class CostsController : ControllerBase
         }
         else
         {
-            // Fallback: Notify Managers and Admin if no specific recipients selected
-            await SendNotificationToRole("quan_ly", "Phiếu chi mới cần duyệt", 
-                $"{userName} đã tạo phiếu chi #{input.LegacyId}. Vui lòng duyệt.", "CostApproval", input.LegacyId.ToString());
+            // Fallback: Notify Specific Manager if available
+            var creator = await _users.Find(u => u.LegacyId == userId).FirstOrDefaultAsync();
+            bool managerNotified = false;
+
+            if (creator != null && !string.IsNullOrEmpty(creator.ManagerId) && int.TryParse(creator.ManagerId, out int managerId))
+            {
+                 await CreateAndSendNotification(managerId, "Phiếu chi mới cần duyệt", 
+                    $"{userName} đã tạo phiếu chi #{input.LegacyId}. Vui lòng duyệt.", "CostApproval", input.LegacyId.ToString());
+                 managerNotified = true;
+            }
+
+            // If no specific manager, notify all managers
+            if (!managerNotified)
+            {
+                await SendNotificationToRole("quan_ly", "Phiếu chi mới cần duyệt", 
+                    $"{userName} đã tạo phiếu chi #{input.LegacyId}. Vui lòng duyệt.", "CostApproval", input.LegacyId.ToString());
+            }
             
             await SendNotificationToRole("admin", "Phiếu chi mới cần duyệt", 
                 $"{userName} đã tạo phiếu chi #{input.LegacyId}. Vui lòng duyệt.", "CostApproval", input.LegacyId.ToString());
@@ -271,8 +290,12 @@ public class CostsController : ControllerBase
         var cost = await _costs.Find(c => c.LegacyId == id).FirstOrDefaultAsync();
         if (cost == null) return NotFound(new { message = "Cost not found" });
 
+        // Get Requester Info for hierarchy lookup
+        var requester = await _users.Find(u => u.LegacyId == cost.CreatedByUserId).FirstOrDefaultAsync();
+
         string nextStatus = "";
-        string roleToNotify = "";
+        List<int> userIdsToNotify = new List<int>();
+        string roleToNotifyFallback = "";
         string notificationTitle = "";
         string notificationMsg = "";
 
@@ -282,7 +305,39 @@ public class CostsController : ControllerBase
             if (userRole == "quan_ly" || userRole == "admin")
             {
                 nextStatus = "Quản lý duyệt";
-                roleToNotify = "giam_doc";
+                cost.ApproverManager = "Đã duyệt";
+                
+                // Determine Director to notify
+                // Case 1: Requester is Manager -> Notify their Manager (Director)
+                // Case 2: Requester is Employee -> Notify their Manager's Manager (Director)
+                
+                if (requester != null)
+                {
+                    if (requester.RoleCode == "quan_ly")
+                    {
+                        if (!string.IsNullOrEmpty(requester.ManagerId) && int.TryParse(requester.ManagerId, out int directManagerId))
+                        {
+                            userIdsToNotify.Add(directManagerId);
+                        }
+                    }
+                    else // Assume Employee
+                    {
+                        if (!string.IsNullOrEmpty(requester.ManagerId) && int.TryParse(requester.ManagerId, out int managerId))
+                        {
+                            var managerUser = await _users.Find(u => u.LegacyId == managerId).FirstOrDefaultAsync();
+                            if (managerUser != null && !string.IsNullOrEmpty(managerUser.ManagerId))
+                            {
+                                if (int.TryParse(managerUser.ManagerId, out int directorId))
+                                {
+                                    userIdsToNotify.Add(directorId);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (userIdsToNotify.Count == 0) roleToNotifyFallback = "giam_doc";
+                
                 notificationTitle = "Phiếu chi đã được quản lý duyệt";
                 notificationMsg = $"Quản lý {userName} đã duyệt phiếu chi #{id}. Chờ giám đốc duyệt.";
             }
@@ -293,7 +348,10 @@ public class CostsController : ControllerBase
              if (userRole == "giam_doc" || userRole == "admin")
             {
                 nextStatus = "Giám đốc duyệt";
-                roleToNotify = "ke_toan";
+                cost.ApproverDirector = "Đã duyệt";
+                
+                roleToNotifyFallback = "ke_toan"; // Accountants are usually a pool
+                
                 notificationTitle = "Phiếu chi đã được giám đốc duyệt";
                 notificationMsg = $"Giám đốc {userName} đã duyệt phiếu chi #{id}. Chờ kế toán thanh toán.";
             }
@@ -304,7 +362,8 @@ public class CostsController : ControllerBase
              if (userRole == "ke_toan" || userRole == "admin")
             {
                 nextStatus = "Đã thanh toán";
-                // Notify Requester
+                cost.AccountantReview = "Đã duyệt";
+                
                 notificationTitle = "Phiếu chi đã được thanh toán";
                 notificationMsg = $"Kế toán {userName} đã xác nhận thanh toán phiếu chi #{id}.";
             }
@@ -327,13 +386,31 @@ public class CostsController : ControllerBase
         await _costs.ReplaceOneAsync(c => c.Id == cost.Id, cost);
 
         // Send Notifications
-        if (!string.IsNullOrEmpty(roleToNotify))
+        // 1. To Specific Users (Hierarchy)
+        if (userIdsToNotify.Count > 0)
         {
-            await SendNotificationToRole(roleToNotify, notificationTitle, notificationMsg, "CostApproval", id.ToString());
-            if (roleToNotify != "admin") await SendNotificationToRole("admin", notificationTitle, notificationMsg, "CostApproval", id.ToString());
+            foreach(var uid in userIdsToNotify)
+            {
+                await CreateAndSendNotification(uid, notificationTitle, notificationMsg, "CostApproval", id.ToString());
+            }
         }
 
-        // Always notify requester if they are not the one approving
+        // 2. To Role (Fallback or Required)
+        // If specific users notified, maybe skip role unless it's accountant?
+        // Let's send to role if NO specific users found, OR if role is 'ke_toan' (pool)
+        if (!string.IsNullOrEmpty(roleToNotifyFallback))
+        {
+            if (userIdsToNotify.Count == 0 || roleToNotifyFallback == "ke_toan")
+            {
+                await SendNotificationToRole(roleToNotifyFallback, notificationTitle, notificationMsg, "CostApproval", id.ToString());
+            }
+        }
+        
+        // 3. Always notify Admin (for visibility)
+        if (roleToNotifyFallback != "admin") 
+             await SendNotificationToRole("admin", notificationTitle, notificationMsg, "CostApproval", id.ToString());
+
+        // 4. Always notify Requester (if not self)
         if (cost.CreatedByUserId != userId)
         {
              await CreateAndSendNotification(cost.CreatedByUserId, notificationTitle, notificationMsg, "CostApproval", id.ToString());

@@ -1,0 +1,3 @@
+Sau đó bạn có thể login qua API:
+- username : một trong admin , ceo , director , accountant , sales
+- password : 123456
