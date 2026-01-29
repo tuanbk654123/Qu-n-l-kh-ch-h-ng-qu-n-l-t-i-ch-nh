@@ -167,4 +167,79 @@ public class DashboardController : ControllerBase
             transactions
         });
     }
+
+    [HttpGet("customer-growth")]
+    public async Task<ActionResult<object>> GetCustomerGrowth([FromQuery] int year)
+    {
+        var allCustomers = await _customers.Find(_ => true).ToListAsync();
+        
+        // Filter by year and group by month
+        var monthlyStats = allCustomers
+            .Where(c => !string.IsNullOrWhiteSpace(c.JoinDate) && 
+                        DateTime.TryParseExact(c.JoinDate, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date) &&
+                        date.Year == year)
+            .GroupBy(c => 
+            {
+                DateTime.TryParseExact(c.JoinDate, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date);
+                return date.Month;
+            })
+            .Select(g => new 
+            {
+                Month = g.Key,
+                Count = g.Count(),
+                ConsultedCount = g.Count(c => !string.IsNullOrEmpty(c.ConsultingStatus) && c.ConsultingStatus.ToLower().Contains("tư vấn"))
+            })
+            .OrderBy(x => x.Month)
+            .ToList();
+
+        // Fill missing months with 0
+        var result = Enumerable.Range(1, 12).Select(month => 
+        {
+            var stat = monthlyStats.FirstOrDefault(s => s.Month == month);
+            return new 
+            {
+                name = $"Tháng {month}",
+                Total = stat?.Count ?? 0,
+                Consulted = stat?.ConsultedCount ?? 0
+            };
+        }).ToList();
+
+        return Ok(result);
+    }
+
+    [HttpGet("project-costs")]
+    public async Task<ActionResult<object>> GetProjectCosts([FromQuery] int? month, [FromQuery] int year)
+    {
+        var allCosts = await _costs.Find(_ => true).ToListAsync();
+
+        // Filter by PaymentStatus "Đã thanh toán" and Date
+        var query = allCosts.Where(c => c.PaymentStatus == "Đã thanh toán");
+
+        if (year > 0)
+        {
+            query = query.Where(c => 
+            {
+                var dateStr = string.IsNullOrWhiteSpace(c.VoucherDate) ? c.RequestDate : c.VoucherDate;
+                if (string.IsNullOrWhiteSpace(dateStr)) return false;
+                if (!DateTime.TryParseExact(dateStr, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)) return false;
+                
+                if (month.HasValue && date.Month != month.Value) return false;
+                if (date.Year != year) return false;
+
+                return true;
+            });
+        }
+
+        var projectStats = query
+            .GroupBy(c => string.IsNullOrEmpty(c.ProjectCode) ? "Khác" : c.ProjectCode)
+            .Select(g => new 
+            {
+                name = g.Key,
+                value = g.Sum(c => c.TotalAmount)
+            })
+            .OrderByDescending(x => x.value)
+            .ToList();
+
+        return Ok(projectStats);
+    }
 }

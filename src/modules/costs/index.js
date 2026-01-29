@@ -5,66 +5,52 @@ import {
   Button,
   Space,
   Tag,
-  Modal,
-  Form,
-  message,
-  notification,
   Popconfirm,
   Select,
-  DatePicker,
-  Tabs,
-  Upload,
-  Card,
-  Row,
-  Col,
-  Statistic,
+  message,
 } from 'antd';
 import {
   EditOutlined,
   DeleteOutlined,
   PlusOutlined,
   SearchOutlined,
-  UploadOutlined,
-  DollarOutlined,
-  FileTextOutlined,
-  CheckOutlined,
-  CloseOutlined,
-  BellOutlined,
 } from '@ant-design/icons';
 import axios from 'axios';
-import dayjs from 'dayjs';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
 import { handleApiError } from '../../utils/errorHelper';
 import { useLocation } from 'react-router-dom';
 import './index.css';
+import CostFormModal from './CostFormModal';
 
 const { Option } = Select;
-const { TextArea } = Input;
-const API_BASE_URL = 'http://localhost:58457';
 
 const Costs = () => {
   const location = useLocation();
   const { user } = useAuth();
   const { refreshNotifications } = useNotification();
+  
+  const [tableParams, setTableParams] = useState({
+    pagination: {
+      current: 1,
+      pageSize: 10,
+      showSizeChanger: true,
+    },
+  });
+
   const [costs, setCosts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [page, setPage] = useState(1);
-  const [total, setTotal] = useState(0);
+  
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingCost, setEditingCost] = useState(null);
-  const [form] = Form.useForm();
+  const [isNotificationView, setIsNotificationView] = useState(false);
 
   const [fieldPermissions, setFieldPermissions] = useState({});
-  const [rejectReasonModalVisible, setRejectReasonModalVisible] = useState(false);
-  const [rejectReason, setRejectReason] = useState('');
   const [users, setUsers] = useState([]);
 
   useEffect(() => {
-    // Fetch users for notification dropdown
+    // Fetch users for notification dropdown (passed to modal)
     axios.get('/api/users')
       .then(res => {
         if (res.data && res.data.users) {
@@ -74,12 +60,13 @@ const Costs = () => {
       .catch(err => console.error('Error fetching users:', err));
   }, []);
 
+  // Handle opening from notification
   useEffect(() => {
     if (location.state?.openCostId) {
       const costId = location.state.openCostId;
       axios.get(`/api/costs/${costId}`)
         .then(response => {
-           handleEdit(response.data);
+           handleEdit(response.data, true);
            window.history.replaceState({}, document.title);
         })
         .catch(error => {
@@ -88,57 +75,6 @@ const Costs = () => {
         });
     }
   }, [location.state]);
-
-  const handleApproveAction = () => {
-    form.validateFields(['notificationRecipients']).then(values => {
-      Modal.confirm({
-        title: 'Xác nhận duyệt',
-        content: 'Bạn có chắc chắn muốn duyệt phiếu chi này?',
-        okText: 'Duyệt',
-        cancelText: 'Hủy',
-        onOk: async () => {
-          try {
-              const recipients = form.getFieldValue('notificationRecipients') || [];
-              const res = await axios.post(`/api/costs/${editingCost.id}/approve`, {
-                  notificationRecipients: recipients
-              });
-              message.success(res.data.message || 'Duyệt thành công');
-              setIsModalVisible(false);
-              fetchCosts();
-              refreshNotifications();
-          } catch (error) {
-              handleApiError(error, 'Lỗi khi duyệt phiếu');
-          }
-        },
-      });
-    }).catch(errorInfo => {
-        message.error('Vui lòng chọn người nhận thông báo trước khi duyệt');
-        // Scroll to the field if needed, but message is usually enough
-    });
-  };
-
-  const handleRejectAction = () => {
-    setRejectReason('');
-    setRejectReasonModalVisible(true);
-  };
-
-  const confirmReject = () => {
-    if (!rejectReason.trim()) {
-      message.error('Vui lòng nhập lý do từ chối');
-      return;
-    }
-
-    let updates = { rejectionReason: rejectReason, paymentStatus: 'Huỷ' };
-    if (canEditField('approverManager')) {
-      updates.approverManager = 'Từ chối';
-    } else if (canEditField('approverDirector')) {
-      updates.approverDirector = 'Từ chối';
-    }
-
-    form.setFieldsValue(updates);
-    setRejectReasonModalVisible(false);
-    form.submit();
-  };
 
   const mapFieldToPermissionKey = (field) => {
     const mapping = {
@@ -155,36 +91,42 @@ const Costs = () => {
     return level && level !== 'N';
   };
 
-  const canEditField = (field) => {
-    const key = mapFieldToPermissionKey(field);
-    const level = fieldPermissions[key];
-    return level === 'W' || level === 'A';
-  };
-
-  const [notificationApi, contextHolder] = notification.useNotification();
-
-  // Debug logs
+  // Helper for debug logs
   useEffect(() => {
     console.log('Current User:', user);
     console.log('User Role:', user?.role);
-    console.log('Editing Cost:', editingCost);
     console.log('Field Permissions:', fieldPermissions);
-  }, [user, editingCost, fieldPermissions]);
+  }, [user, fieldPermissions]);
 
   const fetchCosts = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await axios.get('/api/costs', {
-        params: { search, type: typeFilter, status: statusFilter, page },
-      });
+      const { current, pageSize } = tableParams.pagination;
+      const params = {
+        search,
+        page: current,
+        limit: pageSize,
+        sortField: tableParams.sortField,
+        sortOrder: tableParams.sortOrder,
+        ...tableParams.filters,
+      };
+
+      const response = await axios.get('/api/costs', { params });
       setCosts(response.data.costs);
-      setTotal(response.data.costCount);
+      
+      setTableParams((prev) => ({
+        ...prev,
+        pagination: {
+          ...prev.pagination,
+          total: response.data.costCount,
+        },
+      }));
     } catch (error) {
       handleApiError(error, 'Lỗi khi tải dữ liệu chi phí');
     } finally {
       setLoading(false);
     }
-  }, [search, typeFilter, statusFilter, page]);
+  }, [search, tableParams.pagination.current, tableParams.pagination.pageSize, tableParams.sortField, tableParams.sortOrder, tableParams.filters]);
 
   const fetchPermissions = useCallback(async () => {
     try {
@@ -202,27 +144,69 @@ const Costs = () => {
     fetchCosts();
   }, [fetchCosts, fetchPermissions]);
 
+  const handleTableChange = (pagination, filters, sorter) => {
+    const newFilters = {};
+    Object.keys(filters).forEach((key) => {
+      if (filters[key] && filters[key].length > 0) {
+        newFilters[key] = filters[key][0];
+      }
+    });
+
+    setTableParams({
+      pagination,
+      filters: newFilters,
+      sortField: sorter.field,
+      sortOrder: sorter.order,
+    });
+  };
+
+  const getColumnSearchProps = (dataIndex) => ({
+    filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }) => (
+      <div style={{ padding: 8 }} onKeyDown={(e) => e.stopPropagation()}>
+        <Input
+          placeholder={`Search ${dataIndex}`}
+          value={selectedKeys[0]}
+          onChange={(e) => setSelectedKeys(e.target.value ? [e.target.value] : [])}
+          onPressEnter={() => confirm()}
+          style={{ marginBottom: 8, display: 'block' }}
+        />
+        <Space>
+          <Button
+            type="primary"
+            onClick={() => confirm()}
+            icon={<SearchOutlined />}
+            size="small"
+            style={{ width: 90 }}
+          >
+            Search
+          </Button>
+          <Button
+            onClick={() => {
+              clearFilters();
+              confirm();
+            }}
+            size="small"
+            style={{ width: 90 }}
+          >
+            Reset
+          </Button>
+        </Space>
+      </div>
+    ),
+    filterIcon: (filtered) => (
+      <SearchOutlined style={{ color: filtered ? '#1890ff' : undefined }} />
+    ),
+  });
+
   const handleAdd = () => {
     setEditingCost(null);
-    form.resetFields();
-    form.setFieldsValue({
-      requestDate: dayjs(),
-      taxRate: '10%',
-      paymentStatus: 'Đợi duyệt',
-    });
+    setIsNotificationView(false);
     setIsModalVisible(true);
   };
 
-  const handleEdit = (record) => {
+  const handleEdit = (record, fromNotification = false) => {
     setEditingCost(record);
-    const formattedRecord = {
-      ...record,
-      requestDate: record.requestDate ? dayjs(record.requestDate) : null,
-      transactionDate: record.transactionDate ? dayjs(record.transactionDate) : null,
-      voucherDate: record.voucherDate ? dayjs(record.voucherDate) : null,
-      attachments: Array.isArray(record.attachments) ? record.attachments : (record.attachment ? [{ path: record.attachment, name: 'Đính kèm' }] : [])
-    };
-    form.setFieldsValue(formattedRecord);
+    setIsNotificationView(fromNotification);
     setIsModalVisible(true);
   };
 
@@ -236,160 +220,10 @@ const Costs = () => {
     }
   };
 
-  const handleSubmit = async (values) => {
-    try {
-      const formattedValues = {
-        ...values,
-        requestDate: values.requestDate ? values.requestDate.format('YYYY-MM-DD') : null,
-        transactionDate: values.transactionDate ? values.transactionDate.format('YYYY-MM-DD') : null,
-        voucherDate: values.voucherDate ? values.voucherDate.format('YYYY-MM-DD') : null,
-      };
-
-      if (editingCost) {
-        await axios.put(`/api/costs/${editingCost.id}`, formattedValues);
-        message.success('Cập nhật phiếu chi thành công');
-
-        // Logic xử lý thông báo và email
-        const newStatus = values.paymentStatus;
-        const oldStatus = editingCost.paymentStatus;
-        let notifData = null;
-        
-        // Manual recipients from form
-        const manualRecipients = values.notificationRecipients || [];
-
-        // Lấy thông tin người tạo phiếu để biết gửi thông báo cho ai (Nhân viên & Manager của họ)
-        let creator = null;
-        try {
-            if (editingCost && editingCost.createdBy) {
-                const res = await axios.get(`/api/users/${editingCost.createdBy}`);
-                creator = res.data;
-            }
-        } catch (e) {
-            console.error('Error fetching creator info', e);
-        }
-
-        // 1. Nếu bị HUỶ (Từ chối)
-        if (newStatus === 'Huỷ' && oldStatus !== 'Huỷ') {
-             // Thông báo cho Người yêu cầu (Requester) và Manager của họ
-             const userIdsToNotify = [];
-             if (creator) {
-                userIdsToNotify.push(creator.id);
-                if (creator.managerId) userIdsToNotify.push(creator.managerId);
-             } else {
-                 userIdsToNotify.push(editingCost.createdBy);
-                 userIdsToNotify.push(2); // Fallback
-             }
-
-             notifData = {
-                title: 'Phiếu chi bị từ chối',
-                message: `Phiếu chi #${editingCost.id} đã bị từ chối. Lý do: ${values.rejectionReason}`,
-                type: 'CostApproval',
-                relatedId: editingCost.id.toString(),
-                userIds: [...new Set([...userIdsToNotify, ...manualRecipients])]
-             };
-
-             notification.info({
-                 message: '📧 Hệ thống Email (Gmail)',
-                 description: `Đã gửi email TỪ CHỐI đến Requester, Manager và ${manualRecipients.length} người khác. Lý do: ${values.rejectionReason}`,
-                 placement: 'topRight',
-                 duration: 5,
-             });
-        } 
-        // 2. Nếu Manager duyệt -> Chuyển Giám đốc
-        else if (newStatus === 'Quản lý duyệt' && oldStatus !== 'Quản lý duyệt') {
-             // Gửi cho Manager của người đang duyệt (tức là Giám đốc)
-             // user là người đang thao tác (Manager)
-             const directorId = user.managerId || 3; // Fallback to CEO
-
-             notifData = {
-                title: 'Phiếu chi cần duyệt (GĐ)',
-                message: `Manager đã duyệt phiếu #${editingCost.id}. Vui lòng xem xét.`,
-                type: 'CostApproval',
-                relatedId: editingCost.id.toString(),
-                userIds: [directorId]
-             };
-
-             notification.success({
-                message: '📧 Hệ thống Email (Gmail)',
-                description: 'Đã gửi email yêu cầu phê duyệt cho Giám đốc.',
-                placement: 'topRight',
-                duration: 5,
-             });
-        } 
-        // 3. Nếu Giám đốc duyệt -> Chuyển Kế toán
-        else if (newStatus === 'Giám đốc duyệt' && oldStatus !== 'Giám đốc duyệt') {
-             // Gửi cho Kế toán (User ID 4)
-             notifData = {
-                title: 'Phiếu chi đã được duyệt',
-                message: `Giám đốc đã duyệt phiếu #${editingCost.id}. Vui lòng thực hiện chi tiền.`,
-                type: 'CostApproval',
-                relatedId: editingCost.id.toString(),
-                userIds: [4] // Accountant
-             };
-
-             notification.success({
-                message: '📧 Hệ thống Email (Gmail)',
-                description: 'Đã gửi email thông báo cho Kế toán.',
-                placement: 'topRight',
-                duration: 5,
-             });
-        }
-        // 4. Nếu Kế toán hoàn thành (Đã thanh toán)
-        else if (newStatus === 'Đã thanh toán' && oldStatus !== 'Đã thanh toán') {
-             // Gửi cho Requester và Manager
-             const userIdsToNotify = [];
-             if (creator) {
-                userIdsToNotify.push(creator.id);
-                if (creator.managerId) userIdsToNotify.push(creator.managerId);
-             } else {
-                 userIdsToNotify.push(editingCost.createdBy);
-                 userIdsToNotify.push(2);
-             }
-
-             notifData = {
-                title: 'Phiếu chi đã thanh toán',
-                message: `Phiếu chi #${editingCost.id} đã được thanh toán hoàn tất.`,
-                type: 'CostApproval',
-                relatedId: editingCost.id.toString(),
-                userIds: [...new Set([...userIdsToNotify, ...manualRecipients])]
-             };
-
-             notification.success({
-                message: '📧 Hệ thống Email (Gmail)',
-                description: `Đã gửi email xác nhận thanh toán cho Nhân viên, Quản lý và ${manualRecipients.length} người khác.`,
-                placement: 'topRight',
-                duration: 5,
-             });
-        }
-
-        if (notifData) {
-            await axios.post('/api/notifications/create', notifData);
-            refreshNotifications(); // Cập nhật chuông ngay lập tức
-        }
-
-      } else {
-        const res = await axios.post('/api/costs', formattedValues);
-        const newCostId = res.data.id;
-        message.success('Tạo phiếu chi thành công');
-        
-        // Gửi thông báo cho những người được chọn
-        if (values.notificationRecipients && values.notificationRecipients.length > 0) {
-          // Backend đã tự động gửi thông báo dựa trên notificationRecipients
-          notification.success({
-              message: '📧 Hệ thống Email (Gmail)',
-              description: `Đã gửi email yêu cầu phê duyệt cho ${values.notificationRecipients.length} người nhận.`,
-              placement: 'topRight',
-              duration: 5,
-          });
-        }
-        refreshNotifications();
-      }
+  const handleSuccess = () => {
       setIsModalVisible(false);
-      form.resetFields();
       fetchCosts();
-    } catch (error) {
-      handleApiError(error, 'Lỗi khi lưu phiếu chi');
-    }
+      refreshNotifications();
   };
 
   const formatCurrency = (amount) => {
@@ -417,13 +251,18 @@ const Costs = () => {
       title: 'ID',
       dataIndex: 'id',
       key: 'id',
-      width: 60,
+      width: 80,
+      fixed: 'left',
+      sorter: true,
+      ...getColumnSearchProps('id'),
     },
     {
       title: 'Nội dung',
       dataIndex: 'content',
       key: 'content',
       width: 200,
+      sorter: true,
+      ...getColumnSearchProps('content'),
       hidden: !canReadField('content'),
     },
     {
@@ -431,22 +270,44 @@ const Costs = () => {
       dataIndex: 'requester',
       key: 'requester',
       width: 150,
+      sorter: true,
+      ...getColumnSearchProps('requester'),
       hidden: !canReadField('requester'),
     },
     {
-      title: 'Số tiền',
-      dataIndex: 'totalAmount',
-      key: 'totalAmount',
+      title: 'Bộ phận',
+      dataIndex: 'department',
+      key: 'department',
       width: 150,
-      align: 'right',
-      render: (amount) => <b>{formatCurrency(amount)}</b>,
-      hidden: !canReadField('totalAmount'),
+      sorter: true,
+      ...getColumnSearchProps('department'),
+      hidden: !canReadField('department'),
     },
     {
-      title: 'Loại',
+      title: 'Ngày đề nghị',
+      dataIndex: 'requestDate',
+      key: 'requestDate',
+      width: 120,
+      sorter: true,
+      ...getColumnSearchProps('requestDate'),
+      hidden: !canReadField('requestDate'),
+    },
+    {
+      title: 'Mã dự án',
+      dataIndex: 'projectCode',
+      key: 'projectCode',
+      width: 120,
+      sorter: true,
+      ...getColumnSearchProps('projectCode'),
+      hidden: !canReadField('projectCode'),
+    },
+    {
+      title: 'Loại giao dịch',
       dataIndex: 'transactionType',
       key: 'transactionType',
-      width: 100,
+      width: 120,
+      sorter: true,
+      ...getColumnSearchProps('transactionType'),
       render: (type) => (
         <Tag color={type === 'Thu' || type === 'Hoàn ứng' ? 'blue' : 'volcano'}>
           {type}
@@ -455,33 +316,185 @@ const Costs = () => {
       hidden: !canReadField('transactionType'),
     },
     {
+      title: 'Đối tượng',
+      dataIndex: 'transactionObject',
+      key: 'transactionObject',
+      width: 150,
+      sorter: true,
+      ...getColumnSearchProps('transactionObject'),
+      hidden: !canReadField('transactionObject'),
+    },
+    {
+      title: 'Mô tả',
+      dataIndex: 'description',
+      key: 'description',
+      width: 200,
+      sorter: true,
+      ...getColumnSearchProps('description'),
+      hidden: !canReadField('description'),
+    },
+    {
+      title: 'Số tiền trước thuế',
+      dataIndex: 'amountBeforeTax',
+      key: 'amountBeforeTax',
+      width: 150,
+      align: 'right',
+      sorter: true,
+      ...getColumnSearchProps('amountBeforeTax'),
+      render: (amount) => formatCurrency(amount),
+      hidden: !canReadField('amountBeforeTax'),
+    },
+    {
+      title: 'Thuế suất',
+      dataIndex: 'taxRate',
+      key: 'taxRate',
+      width: 100,
+      sorter: true,
+      ...getColumnSearchProps('taxRate'),
+      hidden: !canReadField('taxRate'),
+    },
+    {
+      title: 'Tổng tiền',
+      dataIndex: 'totalAmount',
+      key: 'totalAmount',
+      width: 150,
+      align: 'right',
+      sorter: true,
+      ...getColumnSearchProps('totalAmount'),
+      render: (amount) => <b>{formatCurrency(amount)}</b>,
+      hidden: !canReadField('totalAmount'),
+    },
+    {
+      title: 'PTTT',
+      dataIndex: 'paymentMethod',
+      key: 'paymentMethod',
+      width: 120,
+      sorter: true,
+      ...getColumnSearchProps('paymentMethod'),
+      hidden: !canReadField('paymentMethod'),
+    },
+    {
+      title: 'Ngân hàng',
+      dataIndex: 'bank',
+      key: 'bank',
+      width: 150,
+      sorter: true,
+      ...getColumnSearchProps('bank'),
+      hidden: !canReadField('bank'),
+    },
+    {
+      title: 'Số tài khoản',
+      dataIndex: 'accountNumber',
+      key: 'accountNumber',
+      width: 150,
+      sorter: true,
+      ...getColumnSearchProps('accountNumber'),
+      hidden: !canReadField('accountNumber'),
+    },
+    {
+      title: 'Loại chứng từ',
+      dataIndex: 'voucherType',
+      key: 'voucherType',
+      width: 120,
+      sorter: true,
+      ...getColumnSearchProps('voucherType'),
+      hidden: !canReadField('voucherType'),
+    },
+    {
       title: 'Số chứng từ',
       dataIndex: 'voucherNumber',
       key: 'voucherNumber',
       width: 120,
+      sorter: true,
+      ...getColumnSearchProps('voucherNumber'),
       hidden: !canReadField('voucherNumber'),
+    },
+    {
+      title: 'Ngày chứng từ',
+      dataIndex: 'voucherDate',
+      key: 'voucherDate',
+      width: 120,
+      sorter: true,
+      ...getColumnSearchProps('voucherDate'),
+      hidden: !canReadField('voucherDate'),
+    },
+    {
+      title: 'Ngày giao dịch',
+      dataIndex: 'transactionDate',
+      key: 'transactionDate',
+      width: 120,
+      sorter: true,
+      ...getColumnSearchProps('transactionDate'),
+      hidden: !canReadField('transactionDate'),
     },
     {
       title: 'Trạng thái',
       dataIndex: 'paymentStatus',
       key: 'paymentStatus',
       width: 150,
+      sorter: true,
+      ...getColumnSearchProps('paymentStatus'),
       render: (status) => (
         <Tag color={getStatusColor(status)}>{status}</Tag>
       ),
       hidden: !canReadField('paymentStatus'),
     },
     {
+      title: 'Lý do từ chối',
+      dataIndex: 'rejectionReason',
+      key: 'rejectionReason',
+      width: 200,
+      sorter: true,
+      ...getColumnSearchProps('rejectionReason'),
+      hidden: !canReadField('rejectionReason'),
+    },
+    {
+      title: 'QL duyệt',
+      dataIndex: 'approverManager',
+      key: 'approverManager',
+      width: 150,
+      sorter: true,
+      ...getColumnSearchProps('approverManager'),
+      hidden: !canReadField('approverManager'),
+    },
+    {
+      title: 'GĐ duyệt',
+      dataIndex: 'approverDirector',
+      key: 'approverDirector',
+      width: 150,
+      sorter: true,
+      ...getColumnSearchProps('approverDirector'),
+      hidden: !canReadField('approverDirector'),
+    },
+    {
+      title: 'KT soát xét',
+      dataIndex: 'accountantReview',
+      key: 'accountantReview',
+      width: 150,
+      sorter: true,
+      ...getColumnSearchProps('accountantReview'),
+      hidden: !canReadField('accountantReview'),
+    },
+    {
+      title: 'Ghi chú',
+      dataIndex: 'note',
+      key: 'note',
+      width: 200,
+      sorter: true,
+      ...getColumnSearchProps('note'),
+      hidden: !canReadField('note'),
+    },
+    {
       title: 'Thao tác',
       key: 'action',
-      width: 120,
+      width: 100,
       fixed: 'right',
       render: (_, record) => (
         <Space size="middle">
           <Button
             type="text"
             icon={<EditOutlined />}
-            onClick={() => handleEdit(record)}
+            onClick={() => handleEdit(record, false)}
           />
           <Popconfirm
             title="Bạn có chắc chắn muốn xóa?"
@@ -498,624 +511,6 @@ const Costs = () => {
 
   const visibleColumns = columns.filter((col) => !col.hidden);
 
-  const calculateTotal = (changedValues, allValues) => {
-    if (changedValues.amountBeforeTax || changedValues.taxRate) {
-      const amount = parseFloat(allValues.amountBeforeTax) || 0;
-      let rate = 0;
-      if (allValues.taxRate === '10%') rate = 0.1;
-      else if (allValues.taxRate === '8%') rate = 0.08;
-      else if (allValues.taxRate === '5%') rate = 0.05;
-      
-      const vat = amount * rate;
-      const total = amount + vat;
-      form.setFieldsValue({ vatAmount: vat });
-      form.setFieldsValue({ totalAmount: total });
-    }
-  };
-
-  const renderGeneralInfo = () => (
-    <>
-      <Row gutter={16}>
-        {canReadField('requester') && (
-          <Col span={12}>
-            <Form.Item
-              name="requester"
-              label="Người đề nghị"
-              rules={[{ required: true, message: 'Vui lòng nhập người đề nghị' }]}
-            >
-              <Input disabled={!canEditField('requester')} />
-            </Form.Item>
-          </Col>
-        )}
-        {canReadField('department') && (
-          <Col span={12}>
-            <Form.Item
-              name="department"
-              label="Phòng ban"
-            >
-              <Select allowClear disabled={!canEditField('department')}>
-                <Option value="Marketing">Marketing</Option>
-                <Option value="Pháp chế">Pháp chế</Option>
-                <Option value="Hành chính">Hành chính</Option>
-                <Option value="Kế toán">Kế toán</Option>
-              </Select>
-            </Form.Item>
-          </Col>
-        )}
-      </Row>
-      <Row gutter={16}>
-        {canReadField('requestDate') && (
-          <Col span={12}>
-            <Form.Item
-              name="requestDate"
-              label="Ngày đề nghị"
-              rules={[{ required: true, message: 'Vui lòng chọn ngày' }]}
-            >
-              <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" disabled={!canEditField('requestDate')} />
-            </Form.Item>
-          </Col>
-        )}
-        <Col span={12}>
-          <Form.Item
-            name="transactionDate"
-            label="Ngày phát sinh giao dịch"
-          >
-            <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
-          </Form.Item>
-        </Col>
-      </Row>
-      <Row gutter={16}>
-        {canReadField('projectCode') && (
-          <Col span={12}>
-            <Form.Item
-              name="projectCode"
-              label="Mã dự án"
-            >
-              <Select allowClear disabled={!canEditField('projectCode')}>
-                <Option value="TACs25ND80">TACs25ND80</Option>
-                <Option value="STCHue25ND80">STCHue25ND80</Option>
-                <Option value="SCTQTri25ND80">SCTQTri25ND80</Option>
-                <Option value="SCTCT25ND80">SCTCT25ND80</Option>
-                <Option value="SNNLD25MTQG">SNNLD25MTQG</Option>
-                <Option value="Dịch vụ SHTT">Dịch vụ SHTT</Option>
-              </Select>
-            </Form.Item>
-          </Col>
-        )}
-        {canReadField('priority') && (
-          <Col span={12}>
-            <Form.Item
-              name="priority"
-              label="Ưu tiên"
-            >
-              <Select allowClear disabled={!canEditField('priority')}>
-                <Option value="Mức 1">Mức 1</Option>
-                <Option value="Mức 2">Mức 2</Option>
-                <Option value="Mức 3">Mức 3</Option>
-                <Option value="Mức 4">Mức 4</Option>
-                <Option value="Mức 5">Mức 5</Option>
-              </Select>
-            </Form.Item>
-          </Col>
-        )}
-      </Row>
-      <Row gutter={16}>
-        {canReadField('transactionType') && (
-          <Col span={12}>
-            <Form.Item
-              name="transactionType"
-              label="Loại giao dịch"
-              rules={[{ required: true, message: 'Vui lòng chọn loại giao dịch' }]}
-            >
-              <Select disabled={!canEditField('transactionType')}>
-                <Option value="Chi">Chi</Option>
-                <Option value="Thu">Thu</Option>
-                <Option value="Hoàn ứng">Hoàn ứng</Option>
-                <Option value="Chuyển nội bộ">Chuyển nội bộ</Option>
-                <Option value="Tạm ứng">Tạm ứng</Option>
-              </Select>
-            </Form.Item>
-          </Col>
-        )}
-        {canReadField('transactionObject') && (
-          <Col span={12}>
-            <Form.Item
-              name="transactionObject"
-              label="Đối tượng Thu/Chi"
-              rules={[{ required: true, message: 'Vui lòng nhập đối tượng' }]}
-            >
-              <Input disabled={!canEditField('transactionObject')} />
-            </Form.Item>
-          </Col>
-        )}
-      </Row>
-      <Row gutter={16}>
-        <Col span={24}>
-            <Form.Item
-                name="notificationRecipients"
-                label={
-                    <span>
-                        Gửi thông báo đến <BellOutlined style={{ color: '#1890ff' }} />
-                    </span>
-                }
-                rules={[{ required: true, message: 'Vui lòng chọn người nhận thông báo' }]}
-            >
-                <Select
-                    mode="multiple"
-                    placeholder="Chọn người nhận thông báo"
-                    optionFilterProp="children"
-                    filterOption={(input, option) =>
-                        String(option.children).toLowerCase().includes(input.toLowerCase())
-                    }
-                >
-                    {users.map(u => (
-                        <Option key={u.id} value={u.id}>
-                            {`${u.fullName} (${u.username})`}
-                        </Option>
-                    ))}
-                </Select>
-            </Form.Item>
-        </Col>
-      </Row>
-      <Row gutter={16}>
-        {canReadField('taxCode') && (
-          <Col span={12}>
-            <Form.Item
-              name="taxCode"
-              label="Mã số thuế"
-            >
-              <Input disabled={!canEditField('taxCode')} />
-            </Form.Item>
-          </Col>
-        )}
-      </Row>
-      {canReadField('content') && (
-        <Form.Item
-          name="content"
-          label="Nội dung"
-          rules={[{ required: true, message: 'Vui lòng chọn nội dung' }]}
-        >
-          <Select allowClear disabled={!canEditField('content')}>
-            <Option value="Di chuyển">Di chuyển</Option>
-            <Option value="Ăn uống">Ăn uống</Option>
-            <Option value="Khách sạn">Khách sạn</Option>
-            <Option value="Đổ xăng">Đổ xăng</Option>
-            <Option value="Thanh toán dịch vụ">Thanh toán dịch vụ</Option>
-            <Option value="Khác">Khác</Option>
-          </Select>
-        </Form.Item>
-      )}
-      {canReadField('description') && (
-        <Form.Item
-          name="description"
-          label="Diễn giải chi tiết"
-        >
-          <TextArea rows={3} disabled={!canEditField('description')} />
-        </Form.Item>
-      )}
-    </>
-  );
-
-  const renderFinancialInfo = () => (
-    <>
-      <Row gutter={16}>
-        {canReadField('amountBeforeTax') && (
-          <Col span={8}>
-            <Form.Item
-              name="amountBeforeTax"
-              label="Số tiền (Chưa thuế)"
-              rules={[{ required: true, message: 'Vui lòng nhập số tiền' }]}
-            >
-              <Input type="number" suffix="VND" disabled={!canEditField('amountBeforeTax')} />
-            </Form.Item>
-          </Col>
-        )}
-        {canReadField('taxRate') && (
-          <Col span={8}>
-            <Form.Item
-              name="taxRate"
-              label="Thuế suất"
-            >
-              <Select disabled={!canEditField('taxRate')}>
-                <Option value="No VAT">No VAT</Option>
-                <Option value="0%">VAT 0%</Option>
-                <Option value="5%">VAT 5%</Option>
-                <Option value="8%">VAT 8%</Option>
-                <Option value="10%">VAT 10%</Option>
-              </Select>
-            </Form.Item>
-          </Col>
-        )}
-        {canReadField('totalAmount') && (
-          <Col span={8}>
-            <Form.Item
-              name="totalAmount"
-              label="Tổng tiền"
-            >
-              <Input type="number" suffix="VND" readOnly disabled={!canEditField('totalAmount')} />
-            </Form.Item>
-          </Col>
-        )}
-      </Row>
-      <Row gutter={16}>
-        {canReadField('paymentMethod') && (
-          <Col span={8}>
-            <Form.Item
-              name="paymentMethod"
-              label="Phương thức thanh toán"
-            >
-              <Select disabled={!canEditField('paymentMethod')}>
-                <Option value="Tiền mặt">Tiền mặt</Option>
-                <Option value="Chuyển khoản">Chuyển khoản</Option>
-                <Option value="Ví điện tử">Ví điện tử</Option>
-              </Select>
-            </Form.Item>
-          </Col>
-        )}
-        {canReadField('bank') && (
-          <Col span={8}>
-            <Form.Item
-              name="bank"
-              label="Ngân hàng"
-            >
-              <Input disabled={!canEditField('bank')} />
-            </Form.Item>
-          </Col>
-        )}
-        {canReadField('accountNumber') && (
-          <Col span={8}>
-            <Form.Item
-              name="accountNumber"
-              label="Số tài khoản"
-            >
-              <Input disabled={!canEditField('accountNumber')} />
-            </Form.Item>
-          </Col>
-        )}
-      </Row>
-    </>
-  );
-
-  const handleUpload = async (options) => {
-    const { onSuccess, onError, file } = options;
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-      const response = await axios.post('/api/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-      
-      onSuccess(response.data);
-      message.success('Tải file thành công');
-      const current = form.getFieldValue('attachments') || [];
-      const next = [...current, { path: response.data.path, name: response.data.originalName }];
-      form.setFieldsValue({ attachments: next });
-    } catch (err) {
-      onError({ err });
-      message.error('Tải file thất bại');
-    }
-  };
-
-  const renderVoucherInfo = () => (
-    <>
-      <Row gutter={16}>
-        {canReadField('voucherType') && (
-          <Col span={8}>
-            <Form.Item
-              name="voucherType"
-              label="Loại chứng từ"
-            >
-              <Select disabled={!canEditField('voucherType')}>
-                <Option value="Hóa đơn">Hóa đơn</Option>
-                <Option value="Phiếu thu">Phiếu thu</Option>
-                <Option value="Phiếu chi">Phiếu chi</Option>
-                <Option value="Hợp đồng">Hợp đồng</Option>
-              </Select>
-            </Form.Item>
-          </Col>
-        )}
-        {canReadField('voucherNumber') && (
-          <Col span={8}>
-            <Form.Item
-              name="voucherNumber"
-              label="Số chứng từ"
-            >
-              <Input disabled={!canEditField('voucherNumber')} />
-            </Form.Item>
-          </Col>
-        )}
-        {canReadField('voucherDate') && (
-          <Col span={8}>
-            <Form.Item
-              name="voucherDate"
-              label="Ngày chứng từ"
-            >
-              <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" disabled={!canEditField('voucherDate')} />
-            </Form.Item>
-          </Col>
-        )}
-      </Row>
-      <Row gutter={16}>
-        <Col span={8}>
-          <Form.Item
-            name="invoiceNumber"
-            label="Số hóa đơn"
-          >
-            <Input />
-          </Form.Item>
-        </Col>
-        <Col span={8}>
-          <Form.Item
-            name="invoiceSeries"
-            label="Ký hiệu hóa đơn"
-          >
-            <Input />
-          </Form.Item>
-        </Col>
-        <Col span={8}>
-          <Form.Item
-            name="vatAmount"
-            label="Tiền VAT"
-          >
-            <Input type="number" suffix="VND" />
-          </Form.Item>
-        </Col>
-      </Row>
-      {canReadField('attachment') && (
-        <Form.Item
-          label="File đính kèm"
-          shouldUpdate={(prev, curr) => JSON.stringify(prev.attachments) !== JSON.stringify(curr.attachments)}
-        >
-          {({ getFieldValue }) => {
-            const items = getFieldValue('attachments') || [];
-            return (
-              <Space direction="vertical" style={{ width: '100%' }}>
-                <Form.Item name="attachments" noStyle hidden>
-                  <Input />
-                </Form.Item>
-                <Upload 
-                  multiple
-                  customRequest={handleUpload}
-                  showUploadList={false}
-                  disabled={!canEditField('attachment')}
-                >
-                  <Button icon={<UploadOutlined />}>Tải lên file</Button>
-                </Upload>
-                {items.length > 0 && (
-                  <Space direction="vertical">
-                    {items.map((it, idx) => {
-                      const full = it.path?.startsWith('http') ? it.path : `${API_BASE_URL}${it.path}`;
-                      return (
-                        <Space key={`${it.path}-${idx}`}>
-                          <a href={full} target="_blank" rel="noopener noreferrer">
-                            <Tag icon={<FileTextOutlined />} color="blue">{it.name || 'Tệp đính kèm'}</Tag>
-                          </a>
-                          <Button size="small" danger onClick={() => {
-                            const next = [...items];
-                            next.splice(idx, 1);
-                            form.setFieldsValue({ attachments: next });
-                          }}>Xóa</Button>
-                        </Space>
-                      );
-                    })}
-                  </Space>
-                )}
-              </Space>
-            );
-          }}
-        </Form.Item>
-      )}
-    </>
-  );
-
-  const renderApprovalInfo = () => (
-    <>
-      <Row gutter={16}>
-        {canReadField('paymentStatus') && (
-          <Col span={12}>
-            {!editingCost ? (
-              <Form.Item label="Trạng thái thanh toán">
-                 <Tag color="orange">ĐỢI DUYỆT</Tag>
-                 <Form.Item name="paymentStatus" hidden initialValue="Đợi duyệt">
-                   <Input />
-                 </Form.Item>
-              </Form.Item>
-            ) : (
-              <Form.Item
-                name="paymentStatus"
-                label="Trạng thái thanh toán"
-              >
-                <Select disabled={!canEditField('paymentStatus')}>
-                  <Option value="Đợi duyệt">Đợi duyệt</Option>
-                  <Option value="Quản lý duyệt">Quản lý duyệt</Option>
-                  <Option value="Giám đốc duyệt">Giám đốc duyệt</Option>
-                  <Option value="Đã thanh toán">Đã thanh toán</Option>
-                  <Option value="Thanh toán 1 phần">Thanh toán 1 phần</Option>
-                  <Option value="Huỷ">Huỷ</Option>
-                </Select>
-              </Form.Item>
-            )}
-          </Col>
-        )}
-        {canReadField('rejectionReason') && (
-          <Col span={12}>
-            <Form.Item
-              name="rejectionReason"
-              label="Lý do từ chối"
-            >
-              <Input disabled={!canEditField('rejectionReason')} />
-            </Form.Item>
-          </Col>
-        )}
-      </Row>
-      <Row gutter={16}>
-        {canReadField('approverManager') && (
-          <Col span={8}>
-            <Form.Item
-              name="approverManager"
-              label="Quản lý duyệt"
-            >
-              <Select disabled={!canEditField('approverManager')}>
-                <Option value="Chưa duyệt">Chưa duyệt</Option>
-                <Option value="Đã duyệt">Đã duyệt</Option>
-                <Option value="Tạm ngưng">Tạm ngưng</Option>
-                <Option value="Từ chối">Từ chối</Option>
-              </Select>
-            </Form.Item>
-          </Col>
-        )}
-        {canReadField('approverDirector') && (
-          <Col span={8}>
-            <Form.Item
-              name="approverDirector"
-              label="Giám đốc duyệt"
-            >
-              <Select disabled={!canEditField('approverDirector')}>
-                <Option value="Chưa duyệt">Chưa duyệt</Option>
-                <Option value="Đã duyệt">Đã duyệt</Option>
-                <Option value="Tạm ngưng">Tạm ngưng</Option>
-                <Option value="Từ chối">Từ chối</Option>
-              </Select>
-            </Form.Item>
-          </Col>
-        )}
-        {canReadField('accountantReview') && (
-          <Col span={8}>
-            <Form.Item
-              name="accountantReview"
-              label="Kế toán review"
-            >
-              <Select disabled={!canEditField('accountantReview')}>
-                <Option value="Chưa duyệt">Chưa duyệt</Option>
-                <Option value="Đã duyệt">Đã duyệt</Option>
-                <Option value="Tạm ngưng">Tạm ngưng</Option>
-                <Option value="Từ chối">Từ chối</Option>
-              </Select>
-            </Form.Item>
-          </Col>
-        )}
-      </Row>
-      <Row gutter={16}>
-        {canReadField('adjustmentReason') && (
-          <Col span={12}>
-            <Form.Item
-              name="adjustmentReason"
-              label="Lý do điều chỉnh"
-            >
-              <Input disabled={!canEditField('adjustmentReason')} />
-            </Form.Item>
-          </Col>
-        )}
-        {canReadField('riskFlag') && (
-          <Col span={12}>
-            <Form.Item
-              name="riskFlag"
-              label="Cờ kiểm soát rủi ro"
-            >
-              <Select allowClear>
-                <Option value="Có">Có</Option>
-                <Option value="Không">Không</Option>
-              </Select>
-            </Form.Item>
-          </Col>
-        )}
-      </Row>
-      {canReadField('note') && (
-        <Form.Item
-          name="note"
-          label="Ghi chú"
-        >
-          <TextArea rows={3} disabled={!canEditField('note')} />
-        </Form.Item>
-      )}
-    </>
-  );
-
-  const renderVendorAndAccounting = () => (
-    <>
-      <Row gutter={16}>
-        <Col span={12}>
-          <Form.Item
-            name="vendorName"
-            label="Nhà cung cấp/Đối tác"
-          >
-            <Input />
-          </Form.Item>
-        </Col>
-        <Col span={12}>
-          <Form.Item
-            name="vendorTaxCode"
-            label="MST nhà cung cấp"
-          >
-            <Input />
-          </Form.Item>
-        </Col>
-      </Row>
-      <Row gutter={16}>
-        <Col span={8}>
-          <Form.Item
-            name="costCategory"
-            label="Nhóm chi phí"
-          >
-            <Select allowClear>
-              <Option value="Văn phòng phẩm">Văn phòng phẩm</Option>
-              <Option value="Đi lại">Đi lại</Option>
-              <Option value="Marketing">Marketing</Option>
-              <Option value="Dịch vụ">Dịch vụ</Option>
-              <Option value="Khác">Khác</Option>
-            </Select>
-          </Form.Item>
-        </Col>
-        <Col span={8}>
-          <Form.Item
-            name="costSubCategory"
-            label="Tiểu mục chi phí"
-          >
-            <Input />
-          </Form.Item>
-        </Col>
-        <Col span={8}>
-          <Form.Item
-            name="costCenter"
-            label="Mã hạch toán (Cost center)"
-          >
-            <Input />
-          </Form.Item>
-        </Col>
-      </Row>
-    </>
-  );
-
-  const renderPaymentDeadline = () => (
-    <>
-      <Row gutter={16}>
-        <Col span={12}>
-          <Form.Item
-            name="payDate"
-            label="Ngày thanh toán"
-            getValueProps={(i) => ({ value: i ? dayjs(i) : null })}
-            getValueFromEvent={(e) => (e ? e.format('YYYY-MM-DD') : null)}
-          >
-            <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
-          </Form.Item>
-        </Col>
-        <Col span={12}>
-          <Form.Item
-            name="dueDate"
-            label="Hạn thanh toán"
-            getValueProps={(i) => ({ value: i ? dayjs(i) : null })}
-            getValueFromEvent={(e) => (e ? e.format('YYYY-MM-DD') : null)}
-          >
-            <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
-          </Form.Item>
-        </Col>
-      </Row>
-    </>
-  );
-
   return (
     <div className="costs-container" style={{ padding: 24 }}>
       <div className="costs-header" style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
@@ -1127,45 +522,12 @@ const Costs = () => {
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
-              setPage(1);
+              setTableParams(prev => ({ ...prev, pagination: { ...prev.pagination, current: 1 } }));
             }}
             style={{ width: 250 }}
           />
-          <Select
-            placeholder="Loại giao dịch"
-            value={typeFilter}
-            onChange={(value) => {
-              setTypeFilter(value);
-              setPage(1);
-            }}
-            style={{ width: 150 }}
-            allowClear
-          >
-            <Option value="Chi">Chi</Option>
-            <Option value="Thu">Thu</Option>
-            <Option value="Hoàn ứng">Hoàn ứng</Option>
-            <Option value="Tạm ứng">Tạm ứng</Option>
-          </Select>
-          <Select
-            placeholder="Trạng thái"
-            value={statusFilter}
-            onChange={(value) => {
-              setStatusFilter(value);
-              setPage(1);
-            }}
-            style={{ width: 150 }}
-            allowClear
-          >
-            <Option value="Đợi duyệt">Đợi duyệt</Option>
-            <Option value="Đã thanh toán">Đã thanh toán</Option>
-            <Option value="Quản lý duyệt">Quản lý duyệt</Option>
-          </Select>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={handleAdd}
-          >
-            Tạo phiếu
+          <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+            Thêm mới
           </Button>
         </Space>
       </div>
@@ -1175,122 +537,21 @@ const Costs = () => {
         dataSource={costs}
         loading={loading}
         rowKey="id"
-        pagination={{
-          current: page,
-          pageSize: 10,
-          total: total,
-          onChange: (page) => setPage(page),
-        }}
-        scroll={{ x: 1300 }}
+        pagination={tableParams.pagination}
+        onChange={handleTableChange}
+        scroll={{ x: 'max-content', y: 'calc(100vh - 300px)' }}
+        bordered
       />
 
-      <Modal
-        title={editingCost ? 'Cập nhật phiếu chi' : 'Tạo phiếu chi mới'}
-        open={isModalVisible}
+      <CostFormModal
+        visible={isModalVisible}
         onCancel={() => setIsModalVisible(false)}
-        width={800}
-        footer={[
-          <Button key="back" onClick={() => setIsModalVisible(false)}>
-            Đóng
-          </Button>,
-          (() => {
-            if (!editingCost) {
-              return (
-                <Button key="submit" type="primary" onClick={form.submit}>
-                  Gửi duyệt
-                </Button>
-              );
-            }
-
-            const { paymentStatus } = editingCost;
-            // Quyền duyệt của Manager: Chỉ khi Đợi duyệt
-            const allowManager = canEditField('approverManager') && paymentStatus === 'Đợi duyệt';
-            // Quyền duyệt của Director: Đợi duyệt (nếu được nhảy cóc) hoặc Quản lý duyệt
-            const allowDirector = canEditField('approverDirector') && ['Đợi duyệt', 'Quản lý duyệt'].includes(paymentStatus);
-
-            if (allowManager || allowDirector) {
-              return (
-                <>
-                  <Button key="reject" danger onClick={handleRejectAction}>
-                    Từ chối
-                  </Button>
-                  <Button key="submit" onClick={form.submit} style={{ marginRight: 8 }}>
-                    Lưu
-                  </Button>
-                  <Button key="approve" type="primary" onClick={handleApproveAction}>
-                    Duyệt
-                  </Button>
-                </>
-              );
-            }
-
-            // Nếu là người có quyền duyệt nhưng trạng thái không phù hợp (đã duyệt rồi hoặc đã qua cấp duyệt)
-            // Vẫn cho hiện nút Lưu nếu muốn sửa thông tin (trừ khi đã thanh toán/huỷ)
-            // if (canEditField('approverManager') || canEditField('approverDirector')) {
-            //    return null;
-            // }
-
-            // Người dùng thường (Sales): Ẩn nút nếu đã hoàn thành/hủy hoặc đang trong quá trình duyệt
-            // Tức là chỉ cho phép sửa khi "Đợi duyệt" (hoặc trạng thái bị từ chối nếu có logic đó)
-            // Tuy nhiên, theo yêu cầu, nếu "đã nhấn phê duyệt" (context người duyệt) thì ẩn.
-            // Còn người thường, nếu phiếu đã được duyệt (Quản lý duyệt/Giám đốc duyệt/Đã thanh toán) thì cũng nên ẩn nút Lưu?
-            // Tạm thời ẩn nếu Đã thanh toán hoặc Huỷ.
-            if (['Đã thanh toán', 'Huỷ'].includes(paymentStatus)) {
-                 return null;
-            }
-
-            return (
-              <Button key="submit" type="primary" onClick={form.submit}>
-                Lưu
-              </Button>
-            );
-          })()
-        ]}
-      >
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleSubmit}
-          onValuesChange={calculateTotal}
-        >
-          <Tabs defaultActiveKey="1">
-            <Tabs.TabPane tab="Thông tin chung" key="1">
-              {renderGeneralInfo()}
-            </Tabs.TabPane>
-            <Tabs.TabPane tab="Tài chính" key="2">
-              {renderFinancialInfo()}
-            </Tabs.TabPane>
-            <Tabs.TabPane tab="Chứng từ" key="3">
-              {renderVoucherInfo()}
-            </Tabs.TabPane>
-            <Tabs.TabPane tab="Phê duyệt" key="4">
-              {renderApprovalInfo()}
-            </Tabs.TabPane>
-            <Tabs.TabPane tab="Đối tác & Hạch toán" key="5">
-              {renderVendorAndAccounting()}
-            </Tabs.TabPane>
-            <Tabs.TabPane tab="Thanh toán & Hạn" key="6">
-              {renderPaymentDeadline()}
-            </Tabs.TabPane>
-          </Tabs>
-        </Form>
-      </Modal>
-
-      <Modal
-        title="Lý do từ chối"
-        open={rejectReasonModalVisible}
-        onOk={confirmReject}
-        onCancel={() => setRejectReasonModalVisible(false)}
-        okText="Xác nhận từ chối"
-        cancelText="Hủy"
-      >
-        <Input.TextArea 
-          rows={4} 
-          value={rejectReason} 
-          onChange={(e) => setRejectReason(e.target.value)} 
-          placeholder="Nhập lý do từ chối..." 
-        />
-      </Modal>
+        onSuccess={handleSuccess}
+        initialData={editingCost}
+        fieldPermissions={fieldPermissions}
+        users={users} // Pass users to modal
+        isNotificationView={isNotificationView}
+      />
     </div>
   );
 };

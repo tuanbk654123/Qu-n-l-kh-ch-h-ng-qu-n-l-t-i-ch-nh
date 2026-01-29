@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Statistic, DatePicker, Select } from 'antd';
+import { Card, Row, Col, Statistic, DatePicker, Select, Space } from 'antd';
 import {
   UserOutlined,
   DollarOutlined,
@@ -28,6 +28,8 @@ import './index.css';
 const { RangePicker } = DatePicker;
 const { Option } = Select;
 
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#FF6666', '#AAAAAA'];
+
 const Dashboard = () => {
   const [stats, setStats] = useState({
     totalCustomers: 0,
@@ -36,10 +38,25 @@ const Dashboard = () => {
   const [transactions, setTransactions] = useState([]);
   const [dateRange, setDateRange] = useState(null);
 
+  // New states for charts
+  const [customerStats, setCustomerStats] = useState([]);
+  const [projectStats, setProjectStats] = useState([]);
+  const [custYear, setCustYear] = useState(dayjs().year());
+  const [projMonth, setProjMonth] = useState(dayjs().month() + 1);
+  const [projYear, setProjYear] = useState(dayjs().year());
+
   useEffect(() => {
     fetchStats();
     fetchTransactions();
   }, [dateRange]);
+
+  useEffect(() => {
+    fetchCustomerGrowth();
+  }, [custYear]);
+
+  useEffect(() => {
+    fetchProjectCosts();
+  }, [projMonth, projYear]);
 
   const fetchStats = async () => {
     try {
@@ -82,6 +99,28 @@ const Dashboard = () => {
       setTransactions(response.data.transactions);
     } catch (error) {
       console.error('Lỗi khi tải giao dịch:', error);
+    }
+  };
+
+  const fetchCustomerGrowth = async () => {
+    try {
+      const response = await axios.get('/api/dashboard/customer-growth', {
+        params: { year: custYear }
+      });
+      setCustomerStats(response.data);
+    } catch (error) {
+      console.error('Lỗi khi tải thống kê khách hàng:', error);
+    }
+  };
+
+  const fetchProjectCosts = async () => {
+    try {
+      const response = await axios.get('/api/dashboard/project-costs', {
+        params: { month: projMonth, year: projYear }
+      });
+      setProjectStats(response.data);
+    } catch (error) {
+      console.error('Lỗi khi tải thống kê chi phí dự án:', error);
     }
   };
 
@@ -285,6 +324,90 @@ const Dashboard = () => {
             ) : (
               <div style={{ textAlign: 'center', padding: '50px', color: '#999' }}>
                 Không có dữ liệu để hiển thị
+              </div>
+            )}
+          </Card>
+        </Col>
+      </Row>
+
+      {/* New Charts Section */}
+      <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+        {/* Customer Growth Chart */}
+        <Col xs={24} lg={12}>
+          <Card 
+            title={
+              <Space>
+                <span>Tăng trưởng khách hàng</span>
+                <Select value={custYear} onChange={setCustYear} style={{ width: 100 }}>
+                  {[...Array(5)].map((_, i) => {
+                    const year = dayjs().year() - 2 + i;
+                    return <Option key={year} value={year}>{year}</Option>;
+                  })}
+                </Select>
+              </Space>
+            }
+            className="chart-card"
+          >
+             <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={customerStats} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 1" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip labelStyle={{ color: 'black' }} />
+                  <Legend />
+                  <Bar dataKey="Total" name="Tổng KH mới" fill="#1890ff" />
+                  <Bar dataKey="Consulted" name="Đã tư vấn" fill="#52c41a" />
+                </BarChart>
+             </ResponsiveContainer>
+          </Card>
+        </Col>
+
+        {/* Project Cost Chart */}
+        <Col xs={24} lg={12}>
+          <Card 
+            title={
+              <Space>
+                <span>Chi phí theo dự án</span>
+                <Select value={projMonth} onChange={setProjMonth} style={{ width: 100 }}>
+                  <Option value={0}>Cả năm</Option>
+                  {[...Array(12)].map((_, i) => (
+                    <Option key={i + 1} value={i + 1}>Tháng {i + 1}</Option>
+                  ))}
+                </Select>
+                <Select value={projYear} onChange={setProjYear} style={{ width: 100 }}>
+                   {[...Array(5)].map((_, i) => {
+                    const year = dayjs().year() - 2 + i;
+                    return <Option key={year} value={year}>{year}</Option>;
+                  })}
+                </Select>
+              </Space>
+            }
+            className="chart-card"
+          >
+            {projectStats.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={projectStats}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={100}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {projectStats.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value) => formatCurrency(value)} />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+               <div style={{ textAlign: 'center', padding: '50px', color: '#999' }}>
+                Không có dữ liệu chi phí dự án
               </div>
             )}
           </Card>

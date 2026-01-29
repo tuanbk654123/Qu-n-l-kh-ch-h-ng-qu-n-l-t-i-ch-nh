@@ -21,20 +21,96 @@ public class CustomersController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<object>> GetCustomers([FromQuery] string? search, [FromQuery] int page = 1)
+    public async Task<ActionResult<object>> GetCustomers(
+        [FromQuery] string? search, 
+        [FromQuery] int page = 1,
+        [FromQuery] string? sortField = null,
+        [FromQuery] string? sortOrder = null)
     {
         if (page < 1) page = 1;
 
-        var filter = Builders<Customer>.Filter.Empty;
+        var builder = Builders<Customer>.Filter;
+        var filter = builder.Empty;
 
+        // 1. Global Search
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var lowered = search.ToLower();
-            filter &= Builders<Customer>.Filter.Or(
-                Builders<Customer>.Filter.Where(c => c.Name.ToLower().Contains(lowered)),
-                Builders<Customer>.Filter.Where(c => c.Email.ToLower().Contains(lowered)),
-                Builders<Customer>.Filter.Where(c => c.Phone.Contains(search))
+            // Escape special regex characters to prevent errors
+            var escapedSearch = System.Text.RegularExpressions.Regex.Escape(search);
+            filter &= builder.Or(
+                builder.Regex("name", new BsonRegularExpression(escapedSearch, "i")),
+                builder.Regex("email", new BsonRegularExpression(escapedSearch, "i")),
+                builder.Regex("phone", new BsonRegularExpression(escapedSearch, "i"))
             );
+        }
+
+        // 2. Column Filters
+        var properties = typeof(Customer).GetProperties();
+        foreach (var query in Request.Query)
+        {
+            var key = query.Key;
+            var value = query.Value.ToString();
+            
+            if (string.IsNullOrEmpty(value)) continue;
+            if (new[] { "search", "page", "sortfield", "sortorder", "limit" }.Contains(key.ToLower())) continue;
+
+            // Find matching property (case-insensitive)
+            var prop = properties.FirstOrDefault(p => p.Name.Equals(key, StringComparison.OrdinalIgnoreCase));
+            if (prop != null)
+            {
+                var bsonAttr = prop.GetCustomAttributes(typeof(MongoDB.Bson.Serialization.Attributes.BsonElementAttribute), false)
+                    .FirstOrDefault() as MongoDB.Bson.Serialization.Attributes.BsonElementAttribute;
+                var dbField = bsonAttr?.ElementName ?? prop.Name;
+                
+                // Use Regex for string contains search (case insensitive)
+                // For numeric/date fields, this might need adjustment, but Regex often works if stored as string or casting.
+                // Given the model has some ints (TotalOrders) and decimals, regex might fail on them in some mongo versions or be slow.
+                // However, user asked for "search", implying text search. 
+                // If the field is int, we should probably use Eq or convert input.
+                
+                if (prop.PropertyType == typeof(string))
+                {
+                    filter &= builder.Regex(dbField, new BsonRegularExpression(System.Text.RegularExpressions.Regex.Escape(value), "i"));
+                }
+                else if (prop.PropertyType == typeof(int) || prop.PropertyType == typeof(int?))
+                {
+                    if (int.TryParse(value, out int intVal))
+                    {
+                        filter &= builder.Eq(dbField, intVal);
+                    }
+                }
+                else if (prop.PropertyType == typeof(decimal) || prop.PropertyType == typeof(decimal?))
+                {
+                     if (decimal.TryParse(value, out decimal decVal))
+                    {
+                        filter &= builder.Eq(dbField, decVal);
+                    }
+                }
+                else 
+                {
+                     // Fallback to regex (works for some types depending on serialization) or ignore
+                     // Most fields in Customer.cs are strings.
+                     filter &= builder.Regex(dbField, new BsonRegularExpression(System.Text.RegularExpressions.Regex.Escape(value), "i"));
+                }
+            }
+        }
+
+        // 3. Sorting
+        SortDefinition<Customer> sort = Builders<Customer>.Sort.Descending("legacy_id"); // Default
+        if (!string.IsNullOrEmpty(sortField))
+        {
+            var prop = properties.FirstOrDefault(p => p.Name.Equals(sortField, StringComparison.OrdinalIgnoreCase));
+            if (prop != null)
+            {
+                 var bsonAttr = prop.GetCustomAttributes(typeof(MongoDB.Bson.Serialization.Attributes.BsonElementAttribute), false)
+                    .FirstOrDefault() as MongoDB.Bson.Serialization.Attributes.BsonElementAttribute;
+                 var dbField = bsonAttr?.ElementName ?? prop.Name;
+                 
+                 if (sortOrder?.ToLower() == "asc" || sortOrder?.ToLower() == "ascend")
+                     sort = Builders<Customer>.Sort.Ascending(dbField);
+                 else
+                     sort = Builders<Customer>.Sort.Descending(dbField);
+            }
         }
 
         const int pageSize = 10;
@@ -43,6 +119,7 @@ public class CustomersController : ControllerBase
         var total = await _customers.CountDocumentsAsync(filter);
         var customers = await _customers
             .Find(filter)
+            .Sort(sort)
             .Skip(skip)
             .Limit(pageSize)
             .ToListAsync();

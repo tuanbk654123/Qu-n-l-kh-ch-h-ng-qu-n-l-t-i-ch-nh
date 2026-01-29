@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Options;
 using MongoDB.Bson;
+using MongoDB.Bson.Serialization.Attributes;
 using MongoDB.Driver;
 using System.Text.Json;
 
@@ -36,39 +37,96 @@ public class CostsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<object>> GetCosts([FromQuery] string? search, [FromQuery] string? type, [FromQuery] string? status, [FromQuery] int page = 1)
+    public async Task<ActionResult<object>> GetCosts(
+        [FromQuery] string? search, 
+        [FromQuery] int page = 1,
+        [FromQuery] string? sortField = null,
+        [FromQuery] string? sortOrder = null)
     {
         if (page < 1) page = 1;
+        const int pageSize = 10;
+        var skip = (page - 1) * pageSize;
 
-        var filter = Builders<Cost>.Filter.Empty;
+        var builder = Builders<Cost>.Filter;
+        var filter = builder.Empty;
 
+        // Global Search
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var lowered = search.ToLower();
-            filter &= Builders<Cost>.Filter.Or(
-                Builders<Cost>.Filter.Where(c => c.Content.ToLower().Contains(lowered)),
-                Builders<Cost>.Filter.Where(c => c.Requester.ToLower().Contains(lowered)),
-                Builders<Cost>.Filter.Where(c => c.VoucherNumber != null && c.VoucherNumber.ToLower().Contains(lowered))
+            var searchRegex = new BsonRegularExpression(System.Text.RegularExpressions.Regex.Escape(search), "i");
+            filter &= builder.Or(
+                builder.Regex(c => c.Content, searchRegex),
+                builder.Regex(c => c.Requester, searchRegex),
+                builder.Regex(c => c.VoucherNumber, searchRegex),
+                builder.Regex(c => c.Description, searchRegex),
+                builder.Regex(c => c.ProjectCode, searchRegex)
             );
         }
 
-        if (!string.IsNullOrWhiteSpace(type))
+        // Column Filters via Reflection
+        var properties = typeof(Cost).GetProperties();
+        foreach (var query in Request.Query)
         {
-            filter &= Builders<Cost>.Filter.Eq(c => c.TransactionType, type);
+            var key = query.Key;
+            var value = query.Value.ToString();
+            
+            if (string.IsNullOrEmpty(value)) continue;
+            if (new[] { "search", "page", "sortfield", "sortorder", "limit" }.Contains(key.ToLower())) continue;
+
+            var prop = properties.FirstOrDefault(p => p.Name.Equals(key, StringComparison.OrdinalIgnoreCase));
+            if (prop != null)
+            {
+                var bsonAttr = prop.GetCustomAttributes(typeof(BsonElementAttribute), false)
+                    .FirstOrDefault() as BsonElementAttribute;
+                var dbField = bsonAttr?.ElementName ?? prop.Name;
+                
+                if (prop.PropertyType == typeof(string))
+                {
+                    filter &= builder.Regex(dbField, new BsonRegularExpression(System.Text.RegularExpressions.Regex.Escape(value), "i"));
+                }
+                else if (prop.PropertyType == typeof(int) || prop.PropertyType == typeof(int?))
+                {
+                    if (int.TryParse(value, out int intVal))
+                    {
+                        filter &= builder.Eq(dbField, intVal);
+                    }
+                }
+                else if (prop.PropertyType == typeof(decimal) || prop.PropertyType == typeof(decimal?))
+                {
+                     if (decimal.TryParse(value, out decimal decVal))
+                    {
+                        filter &= builder.Eq(dbField, decVal);
+                    }
+                }
+                 else 
+                {
+                     filter &= builder.Regex(dbField, new BsonRegularExpression(System.Text.RegularExpressions.Regex.Escape(value), "i"));
+                }
+            }
         }
 
-        if (!string.IsNullOrWhiteSpace(status))
+        // Sorting
+        SortDefinition<Cost> sort = Builders<Cost>.Sort.Descending(c => c.LegacyId);
+        if (!string.IsNullOrEmpty(sortField))
         {
-            filter &= Builders<Cost>.Filter.Eq(c => c.PaymentStatus, status);
+            var prop = properties.FirstOrDefault(p => p.Name.Equals(sortField, StringComparison.OrdinalIgnoreCase));
+            if (prop != null)
+            {
+                var bsonAttr = prop.GetCustomAttributes(typeof(BsonElementAttribute), false)
+                    .FirstOrDefault() as BsonElementAttribute;
+                var dbField = bsonAttr?.ElementName ?? prop.Name;
+                
+                if (sortOrder?.ToLower() == "asc" || sortOrder?.ToLower() == "ascend")
+                    sort = Builders<Cost>.Sort.Ascending(dbField);
+                else
+                    sort = Builders<Cost>.Sort.Descending(dbField);
+            }
         }
-
-        const int pageSize = 10;
-        var skip = (page - 1) * pageSize;
 
         var total = await _costs.CountDocumentsAsync(filter);
         var costs = await _costs
             .Find(filter)
-            .SortByDescending(c => c.LegacyId)
+            .Sort(sort)
             .Skip(skip)
             .Limit(pageSize)
             .ToListAsync();
@@ -100,7 +158,10 @@ public class CostsController : ControllerBase
             rejectionReason = c.RejectionReason,
             note = c.Note,
             statusHistory = c.StatusHistory,
-            createdByUserId = c.CreatedByUserId
+            createdByUserId = c.CreatedByUserId,
+            approverManager = c.ApproverManager,
+            approverDirector = c.ApproverDirector,
+            accountantReview = c.AccountantReview
         });
 
         return Ok(new
@@ -426,6 +487,19 @@ public class CostsController : ControllerBase
         if (cost.CreatedByUserId != userId)
         {
              await CreateAndSendNotification(cost.CreatedByUserId, notificationTitle, notificationMsg, "CostApproval", id.ToString());
+        }
+
+        // 5. Notify Extra Recipients (Manually selected)
+        if (extraRecipients.Count > 0)
+        {
+            foreach (var recipientId in extraRecipients)
+            {
+                 // Avoid duplicate notification if already notified automatically
+                 if (!userIdsToNotify.Contains(recipientId) && cost.CreatedByUserId != recipientId)
+                 {
+                      await CreateAndSendNotification(recipientId, notificationTitle, notificationMsg, "CostApproval", id.ToString());
+                 }
+            }
         }
 
         return Ok(new { message = "Duyệt thành công", status = nextStatus });

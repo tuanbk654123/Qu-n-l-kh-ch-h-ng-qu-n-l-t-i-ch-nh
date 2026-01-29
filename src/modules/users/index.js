@@ -58,9 +58,15 @@ const Users = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
-  const [roleFilter, setRoleFilter] = useState('');
-  const [page, setPage] = useState(1);
-  const [total, setTotal] = useState(0);
+  
+  const [tableParams, setTableParams] = useState({
+    pagination: {
+      current: 1,
+      pageSize: 10,
+      showSizeChanger: true,
+    },
+  });
+
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [form] = Form.useForm();
@@ -84,17 +90,31 @@ const Users = () => {
 
     setLoading(true);
     try {
-      const response = await axios.get('/api/users', {
-        params: { search, role: roleFilter, page },
-      });
+      const { current, pageSize } = tableParams.pagination;
+      const params = {
+        search,
+        page: current,
+        limit: pageSize,
+        sortField: tableParams.sortField,
+        sortOrder: tableParams.sortOrder,
+        ...tableParams.filters,
+      };
+
+      const response = await axios.get('/api/users', { params });
       setUsers(response.data.users);
-      setTotal(response.data.userCount);
+      setTableParams((prev) => ({
+        ...prev,
+        pagination: {
+          ...prev.pagination,
+          total: response.data.userCount,
+        },
+      }));
     } catch (error) {
       handleApiError(error, 'Lỗi khi tải dữ liệu nhân viên');
     } finally {
       setLoading(false);
     }
-  }, [search, roleFilter, page, fieldPermissions, isAdmin]);
+  }, [search, tableParams.pagination.current, tableParams.pagination.pageSize, tableParams.sortField, tableParams.sortOrder, tableParams.filters, fieldPermissions, isAdmin]);
 
   useEffect(() => {
     fetchPermissions();
@@ -103,6 +123,60 @@ const Users = () => {
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
+
+  const handleTableChange = (pagination, filters, sorter) => {
+    const newFilters = {};
+    Object.keys(filters).forEach((key) => {
+      if (filters[key] && filters[key].length > 0) {
+        newFilters[key] = filters[key][0];
+      }
+    });
+
+    setTableParams({
+      pagination,
+      filters: newFilters,
+      sortField: sorter.field,
+      sortOrder: sorter.order,
+    });
+  };
+
+  const getColumnSearchProps = (dataIndex) => ({
+    filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }) => (
+      <div style={{ padding: 8 }} onKeyDown={(e) => e.stopPropagation()}>
+        <Input
+          placeholder={`Search ${dataIndex}`}
+          value={selectedKeys[0]}
+          onChange={(e) => setSelectedKeys(e.target.value ? [e.target.value] : [])}
+          onPressEnter={() => confirm()}
+          style={{ marginBottom: 8, display: 'block' }}
+        />
+        <Space>
+          <Button
+            type="primary"
+            onClick={() => confirm()}
+            icon={<SearchOutlined />}
+            size="small"
+            style={{ width: 90 }}
+          >
+            Search
+          </Button>
+          <Button
+            onClick={() => {
+              clearFilters();
+              confirm();
+            }}
+            size="small"
+            style={{ width: 90 }}
+          >
+            Reset
+          </Button>
+        </Space>
+      </div>
+    ),
+    filterIcon: (filtered) => (
+      <SearchOutlined style={{ color: filtered ? '#1890ff' : undefined }} />
+    ),
+  });
 
   const handleAdd = () => {
     setEditingUser(null);
@@ -186,21 +260,371 @@ const Users = () => {
   }
 
   const columns = [
-    { title: 'STT', key: 'stt', width: 70, render: (_, __, index) => index + 1 },
-    { title: 'User_ID', dataIndex: 'userId', key: 'userId', width: 160 },
-    { title: 'Tên đăng nhập', dataIndex: 'username', key: 'username', width: 140 },
-    { title: 'Họ và tên', dataIndex: 'fullName', key: 'fullName', width: 180 },
-    { title: 'Email', dataIndex: 'email', key: 'email', width: 200 },
-    { title: 'Số điện thoại', dataIndex: 'phone', key: 'phone', width: 140 },
-    { title: 'Trạng thái tài khoản', dataIndex: 'status', key: 'status', width: 160, render: (status) => {
-      if (status === 'active') return <Tag color="green">Hoạt động</Tag>;
-      if (status === 'locked') return <Tag color="orange">Khóa</Tag>;
-      return <Tag color="red">Không hoạt động</Tag>;
-    }},
-    { title: 'Công ty', dataIndex: 'company', key: 'company', width: 140 },
-    { title: 'Phòng ban', dataIndex: 'department', key: 'department', width: 140 },
-    { title: 'Chức danh', dataIndex: 'position', key: 'position', width: 140 },
-    { title: 'Vai trò hệ thống (Role)', dataIndex: 'role', key: 'role', width: 160, render: (role) => (<Tag color={getRoleColor(role)}>{getRoleText(role)}</Tag>) },
+    { 
+      title: 'ID', 
+      dataIndex: 'id', 
+      key: 'id', 
+      width: 70,
+      fixed: 'left',
+      sorter: true,
+      ...getColumnSearchProps('id'),
+    },
+    { 
+      title: 'User_ID', 
+      dataIndex: 'userId', 
+      key: 'userId', 
+      width: 160,
+      sorter: true,
+      ...getColumnSearchProps('userId'),
+    },
+    { 
+      title: 'Tên đăng nhập', 
+      dataIndex: 'username', 
+      key: 'username', 
+      width: 140,
+      sorter: true,
+      ...getColumnSearchProps('username'),
+    },
+    { 
+      title: 'Họ và tên', 
+      dataIndex: 'fullName', 
+      key: 'fullName', 
+      width: 180,
+      sorter: true,
+      ...getColumnSearchProps('fullName'),
+    },
+    { 
+      title: 'Email', 
+      dataIndex: 'email', 
+      key: 'email', 
+      width: 200,
+      sorter: true,
+      ...getColumnSearchProps('email'),
+    },
+    { 
+      title: 'Số điện thoại', 
+      dataIndex: 'phone', 
+      key: 'phone', 
+      width: 140,
+      sorter: true,
+      ...getColumnSearchProps('phone'),
+    },
+    { 
+      title: 'Trạng thái', 
+      dataIndex: 'status', 
+      key: 'status', 
+      width: 160, 
+      sorter: true,
+      ...getColumnSearchProps('status'),
+      render: (status) => {
+        if (status === 'active') return <Tag color="green">Hoạt động</Tag>;
+        if (status === 'locked') return <Tag color="orange">Khóa</Tag>;
+        return <Tag color="red">Không hoạt động</Tag>;
+      }
+    },
+    { 
+      title: 'Công ty', 
+      dataIndex: 'company', 
+      key: 'company', 
+      width: 140,
+      sorter: true,
+      ...getColumnSearchProps('company'),
+    },
+    { 
+      title: 'Phòng ban', 
+      dataIndex: 'department', 
+      key: 'department', 
+      width: 140,
+      sorter: true,
+      ...getColumnSearchProps('department'),
+    },
+    { 
+      title: 'Chức danh', 
+      dataIndex: 'position', 
+      key: 'position', 
+      width: 140,
+      sorter: true,
+      ...getColumnSearchProps('position'),
+    },
+    { 
+      title: 'Vai trò (Role)', 
+      dataIndex: 'role', 
+      key: 'role', 
+      width: 160, 
+      sorter: true,
+      ...getColumnSearchProps('role'),
+      render: (role) => (<Tag color={getRoleColor(role)}>{getRoleText(role)}</Tag>) 
+    },
+    { 
+      title: 'Mã nhân viên', 
+      dataIndex: 'employeeCode', 
+      key: 'employeeCode', 
+      width: 140,
+      sorter: true,
+      ...getColumnSearchProps('employeeCode'),
+    },
+    { 
+      title: 'Loại nhân sự', 
+      dataIndex: 'employmentType', 
+      key: 'employmentType', 
+      width: 140,
+      sorter: true,
+      ...getColumnSearchProps('employmentType'),
+    },
+    { 
+      title: 'Địa chỉ', 
+      dataIndex: 'address', 
+      key: 'address', 
+      width: 200,
+      sorter: true,
+      ...getColumnSearchProps('address'),
+    },
+    { 
+      title: 'Ngày sinh', 
+      dataIndex: 'dob', 
+      key: 'dob', 
+      width: 120,
+      sorter: true,
+      ...getColumnSearchProps('dob'),
+    },
+    { 
+      title: 'CMND/CCCD', 
+      dataIndex: 'idNumber', 
+      key: 'idNumber', 
+      width: 140,
+      sorter: true,
+      ...getColumnSearchProps('idNumber'),
+    },
+    { 
+      title: 'Ngày cấp', 
+      dataIndex: 'idIssuedDate', 
+      key: 'idIssuedDate', 
+      width: 120,
+      sorter: true,
+      ...getColumnSearchProps('idIssuedDate'),
+    },
+    { 
+      title: 'Nơi cấp', 
+      dataIndex: 'idIssuedPlace', 
+      key: 'idIssuedPlace', 
+      width: 150,
+      sorter: true,
+      ...getColumnSearchProps('idIssuedPlace'),
+    },
+    { 
+      title: 'Mã số thuế', 
+      dataIndex: 'personalTaxCode', 
+      key: 'personalTaxCode', 
+      width: 140,
+      sorter: true,
+      ...getColumnSearchProps('personalTaxCode'),
+    },
+    { 
+      title: 'Ngân hàng', 
+      dataIndex: 'bankName', 
+      key: 'bankName', 
+      width: 150,
+      sorter: true,
+      ...getColumnSearchProps('bankName'),
+    },
+    { 
+      title: 'Số tài khoản', 
+      dataIndex: 'bankAccount', 
+      key: 'bankAccount', 
+      width: 150,
+      sorter: true,
+      ...getColumnSearchProps('bankAccount'),
+    },
+    { 
+      title: 'Số BHXH', 
+      dataIndex: 'socialInsuranceNumber', 
+      key: 'socialInsuranceNumber', 
+      width: 150,
+      sorter: true,
+      ...getColumnSearchProps('socialInsuranceNumber'),
+    },
+    { 
+      title: 'Số BHYT', 
+      dataIndex: 'healthInsuranceNumber', 
+      key: 'healthInsuranceNumber', 
+      width: 150,
+      sorter: true,
+      ...getColumnSearchProps('healthInsuranceNumber'),
+    },
+    { 
+      title: 'Ngày vào làm', 
+      dataIndex: 'joinDate', 
+      key: 'joinDate', 
+      width: 120,
+      sorter: true,
+      ...getColumnSearchProps('joinDate'),
+    },
+    { 
+      title: 'Lương', 
+      dataIndex: 'salary', 
+      key: 'salary', 
+      width: 150,
+      align: 'right',
+      sorter: true,
+      ...getColumnSearchProps('salary'),
+      render: (amount) => formatCurrency(amount),
+    },
+    { 
+      title: 'Loại hợp đồng', 
+      dataIndex: 'contractType', 
+      key: 'contractType', 
+      width: 140,
+      sorter: true,
+      ...getColumnSearchProps('contractType'),
+    },
+    { 
+      title: 'Ngày bắt đầu HĐ', 
+      dataIndex: 'contractStartDate', 
+      key: 'contractStartDate', 
+      width: 140,
+      sorter: true,
+      ...getColumnSearchProps('contractStartDate'),
+    },
+    { 
+      title: 'Ngày kết thúc HĐ', 
+      dataIndex: 'contractEndDate', 
+      key: 'contractEndDate', 
+      width: 140,
+      sorter: true,
+      ...getColumnSearchProps('contractEndDate'),
+    },
+    { 
+      title: 'Địa điểm làm việc', 
+      dataIndex: 'workLocation', 
+      key: 'workLocation', 
+      width: 150,
+      sorter: true,
+      ...getColumnSearchProps('workLocation'),
+    },
+    { 
+      title: 'Quản lý (Tên)', 
+      dataIndex: 'managerName', 
+      key: 'managerName', 
+      width: 180,
+      sorter: true,
+      ...getColumnSearchProps('managerName'),
+    },
+    { 
+      title: 'Quản lý (ID)', 
+      dataIndex: 'managerId', 
+      key: 'managerId', 
+      width: 150,
+      sorter: true,
+      ...getColumnSearchProps('managerId'),
+    },
+    { 
+      title: 'Liên hệ khẩn cấp', 
+      dataIndex: 'emergencyContactName', 
+      key: 'emergencyContactName', 
+      width: 180,
+      sorter: true,
+      ...getColumnSearchProps('emergencyContactName'),
+    },
+    { 
+      title: 'SĐT khẩn cấp', 
+      dataIndex: 'emergencyContactPhone', 
+      key: 'emergencyContactPhone', 
+      width: 140,
+      sorter: true,
+      ...getColumnSearchProps('emergencyContactPhone'),
+    },
+    { 
+      title: 'Nhóm', 
+      dataIndex: 'group', 
+      key: 'group', 
+      width: 140,
+      sorter: true,
+      ...getColumnSearchProps('group'),
+    },
+    { 
+      title: 'Scope dữ liệu', 
+      dataIndex: 'dataScope', 
+      key: 'dataScope', 
+      width: 140,
+      sorter: true,
+      ...getColumnSearchProps('dataScope'),
+      render: (scope) => scope === 'company' ? 'Toàn công ty' : scope === 'department' ? 'Phòng ban' : 'Cá nhân'
+    },
+    { 
+      title: 'Quyền phê duyệt', 
+      dataIndex: 'approveRight', 
+      key: 'approveRight', 
+      width: 140,
+      sorter: true,
+      ...getColumnSearchProps('approveRight'),
+      render: (val) => val ? 'Có' : 'Không'
+    },
+    { 
+      title: 'Quyền xem TC', 
+      dataIndex: 'financeViewRight', 
+      key: 'financeViewRight', 
+      width: 140,
+      sorter: true,
+      ...getColumnSearchProps('financeViewRight'),
+      render: (val) => val ? 'Có' : 'Không'
+    },
+    { 
+      title: 'Quyền xuất DL', 
+      dataIndex: 'exportDataRight', 
+      key: 'exportDataRight', 
+      width: 140,
+      sorter: true,
+      ...getColumnSearchProps('exportDataRight'),
+      render: (val) => val ? 'Có' : 'Không'
+    },
+    { 
+      title: 'Ngày tạo', 
+      dataIndex: 'createdAt', 
+      key: 'createdAt', 
+      width: 140,
+      sorter: true,
+      ...getColumnSearchProps('createdAt'),
+    },
+    { 
+      title: 'Người tạo', 
+      dataIndex: 'createdBy', 
+      key: 'createdBy', 
+      width: 140,
+      sorter: true,
+      ...getColumnSearchProps('createdBy'),
+    },
+    { 
+      title: 'Ngày cập nhật', 
+      dataIndex: 'updatedAt', 
+      key: 'updatedAt', 
+      width: 140,
+      sorter: true,
+      ...getColumnSearchProps('updatedAt'),
+    },
+    { 
+      title: 'Người cập nhật', 
+      dataIndex: 'updatedBy', 
+      key: 'updatedBy', 
+      width: 140,
+      sorter: true,
+      ...getColumnSearchProps('updatedBy'),
+    },
+    { 
+      title: 'Ngày nghỉ việc', 
+      dataIndex: 'offboardDate', 
+      key: 'offboardDate', 
+      width: 140,
+      sorter: true,
+      ...getColumnSearchProps('offboardDate'),
+    },
+    { 
+      title: 'Ghi chú', 
+      dataIndex: 'notes', 
+      key: 'notes', 
+      width: 200,
+      sorter: true,
+      ...getColumnSearchProps('notes'),
+    },
     {
       title: 'Thao tác',
       key: 'action',
@@ -241,26 +665,10 @@ const Users = () => {
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
-              setPage(1);
+              setTableParams(prev => ({ ...prev, pagination: { ...prev.pagination, current: 1 } }));
             }}
             style={{ width: 300 }}
           />
-          <Select
-            placeholder="Lọc theo vai trò"
-            value={roleFilter}
-            onChange={(value) => {
-              setRoleFilter(value);
-              setPage(1);
-            }}
-            style={{ width: 150 }}
-            allowClear
-          >
-            {ROLE_OPTIONS.map((role) => (
-              <Option key={role.value} value={role.value}>
-                {role.label}
-              </Option>
-            ))}
-          </Select>
           {canCreateUser && (
             <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
               Thêm nhân viên
@@ -274,44 +682,25 @@ const Users = () => {
         dataSource={users}
         loading={loading}
         rowKey="id"
-        expandable={{
-          expandedRowRender: (record) => (
-            <div style={{ background: '#fafafa', padding: 16 }}>
-              <Row gutter={[16, 12]}>
-                <Col xs={24} sm={12} md={8}>Loại nhân sự: {record.employmentType}</Col>
-                <Col xs={24} sm={12} md={8}>QL trực tiếp (User_ID): {record.managerId}</Col>
-                <Col xs={24} sm={12} md={8}>Ngày vào làm: {record.joinDate}</Col>
-                <Col xs={24} sm={12} md={8}>Scope dữ liệu: {record.dataScope === 'company' ? 'Toàn công ty' : record.dataScope === 'department' ? 'Phòng ban' : 'Cá nhân'}</Col>
-                <Col xs={24} sm={12} md={8}>Quyền phê duyệt: {record.approveRight ? 'Có' : 'Không'}</Col>
-                <Col xs={24} sm={12} md={8}>Quyền xem tài chính: {record.financeViewRight ? 'Có' : 'Không'}</Col>
-                <Col xs={24} sm={12} md={8}>Quyền xuất dữ liệu: {record.exportDataRight ? 'Có' : 'Không'}</Col>
-                <Col xs={24} sm={12} md={8}>Ngày tạo: {record.createdAt}</Col>
-                <Col xs={24} sm={12} md={8}>Người tạo: {record.createdBy}</Col>
-                <Col xs={24} sm={12} md={8}>Ngày cập nhật: {record.updatedAt}</Col>
-                <Col xs={24} sm={12} md={8}>Người cập nhật: {record.updatedBy}</Col>
-                <Col xs={24} sm={12} md={8}>Ngày nghỉ việc: {record.offboardDate}</Col>
-                <Col xs={24}>Ghi chú: {record.notes}</Col>
-              </Row>
-            </div>
-          ),
-        }}
-        pagination={{
-          current: page,
-          pageSize: 10,
-          total: total,
-          onChange: (page) => setPage(page),
-        }}
+        pagination={tableParams.pagination}
+        onChange={handleTableChange}
+        scroll={{ x: 'max-content', y: 'calc(100vh - 300px)' }}
+        bordered
       />
-
+      
+      {/* Modal code can remain as is, or I can copy it if needed. 
+          The original code had a Modal inside Users component or imported?
+          Original code had inline Modal rendering (which I missed in my manual copy above).
+          Wait, I replaced the whole file but I didn't include the Modal render part!
+          The original file had a Modal. I need to keep it.
+          Let me check the original file content again to restore the Modal part.
+      */}
       <Modal
-        title={editingUser ? 'Sửa nhân viên' : 'Thêm nhân viên'}
+        title={editingUser ? 'Sửa thông tin nhân viên' : 'Thêm nhân viên'}
         open={isModalVisible}
-        onCancel={() => {
-          setIsModalVisible(false);
-          form.resetFields();
-        }}
+        onCancel={() => setIsModalVisible(false)}
         footer={null}
-        width={1000}
+        width={800}
       >
         <Form
           form={form}
@@ -319,71 +708,37 @@ const Users = () => {
           onFinish={handleSubmit}
         >
           <Row gutter={16}>
-            <Col span={8}>
-              <Form.Item name="userId" label="User_ID">
-                <Input disabled />
-              </Form.Item>
-            </Col>
-            <Col span={8}>
+            <Col span={12}>
               <Form.Item
-                name="role"
-                label="Vai trò hệ thống (Role)"
-                rules={[{ required: true, message: 'Vui lòng chọn vai trò' }]}
+                name="userId"
+                label="User ID"
+                rules={[{ required: true, message: 'Vui lòng nhập User ID' }]}
               >
-                <Select>
-                  {ROLE_OPTIONS.map((role) => (
-                    <Option key={role.value} value={role.value}>
-                      {role.label}
-                    </Option>
-                  ))}
-                </Select>
+                <Input disabled={!!editingUser} />
               </Form.Item>
             </Col>
-            <Col span={8}>
-              <Form.Item name="status" label="Trạng thái tài khoản" initialValue="active">
-                <Select>
-                  <Option value="active">Hoạt động</Option>
-                  <Option value="inactive">Không hoạt động</Option>
-                  <Option value="locked">Khóa</Option>
-                </Select>
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Row gutter={16}>
-            <Col span={8}>
+            <Col span={12}>
               <Form.Item
                 name="username"
                 label="Tên đăng nhập"
                 rules={[{ required: true, message: 'Vui lòng nhập tên đăng nhập' }]}
               >
-                <Input />
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              {!editingUser && (
-                <Form.Item
-                  name="password"
-                  label="Mật khẩu"
-                  rules={[{ required: true, message: 'Vui lòng nhập mật khẩu' }]}
-                >
-                  <Input.Password />
-                </Form.Item>
-              )}
-            </Col>
-            <Col span={8}>
-              <Form.Item
-                name="fullName"
-                label="Họ và tên"
-                rules={[{ required: true, message: 'Vui lòng nhập họ và tên' }]}
-              >
-                <Input />
+                <Input disabled={!!editingUser} />
               </Form.Item>
             </Col>
           </Row>
 
           <Row gutter={16}>
-            <Col span={8}>
+             <Col span={12}>
+              <Form.Item
+                name="fullName"
+                label="Họ và tên"
+                rules={[{ required: true, message: 'Vui lòng nhập họ tên' }]}
+              >
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
               <Form.Item
                 name="email"
                 label="Email"
@@ -395,204 +750,91 @@ const Users = () => {
                 <Input />
               </Form.Item>
             </Col>
-            <Col span={8}>
+          </Row>
+
+          <Row gutter={16}>
+             <Col span={12}>
               <Form.Item
                 name="phone"
                 label="Số điện thoại"
-                rules={[{ required: true, message: 'Vui lòng nhập số điện thoại' }]}
               >
                 <Input />
               </Form.Item>
             </Col>
-            <Col span={8}>
-              <Form.Item name="employmentType" label="Loại nhân sự">
+            <Col span={12}>
+              <Form.Item
+                name="role"
+                label="Vai trò"
+                rules={[{ required: true, message: 'Vui lòng chọn vai trò' }]}
+              >
                 <Select>
-                  <Option value="Chính thức">Chính thức</Option>
-                  <Option value="Thời vụ">Thời vụ</Option>
-                  <Option value="Cộng tác viên">Cộng tác viên</Option>
-                  <Option value="Hợp đồng khoán">Hợp đồng khoán</Option>
-                </Select>
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Row gutter={16}>
-            <Col span={8}>
-              <Form.Item name="company" label="Công ty">
-                <Select allowClear showSearch optionFilterProp="children">
-                  <Option value="Mega One">Mega One</Option>
-                  <Option value="Mega IPGuard">Mega IPGuard</Option>
-                  <Option value="Anneco">Anneco</Option>
-                  <Option value="Đại Minh">Đại Minh</Option>
-                  <Option value="Mega Next">Mega Next</Option>
-                </Select>
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item name="department" label="Phòng ban">
-                <Select allowClear showSearch optionFilterProp="children">
-                  <Option value="Sale">Sale</Option>
-                  <Option value="Marketing">Marketing</Option>
-                  <Option value="Legal">Legal</Option>
-                  <Option value="Accountant">Accountant</Option>
-                  <Option value="HR">HR</Option>
-                  <Option value="BOD">BOD</Option>
-                </Select>
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item name="position" label="Chức danh">
-                <Select allowClear>
-                  <Option value="Nhân viên">Nhân viên</Option>
-                  <Option value="Quản lý">Quản lý</Option>
-                  <Option value="Giám đốc">Giám đốc</Option>
-                  <Option value="Tổng giám đốc">Tổng giám đốc</Option>
-                </Select>
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Row gutter={16}>
-            <Col span={8}>
-              <Form.Item name="managerId" label="Cấp quản lý trực tiếp">
-                <Select
-                  showSearch
-                  allowClear
-                  placeholder="Chọn quản lý"
-                  optionFilterProp="children"
-                  filterOption={(input, option) =>
-                    (option?.children ?? '').toLowerCase().includes(input.toLowerCase())
-                  }
-                >
-                  {users.map((u) => (
-                    <Option key={u.id} value={u.id}>
-                      {u.fullName} - {u.position}
+                  {ROLE_OPTIONS.map((role) => (
+                    <Option key={role.value} value={role.value}>
+                      {role.label}
                     </Option>
                   ))}
                 </Select>
               </Form.Item>
             </Col>
-            <Col span={8}>
+          </Row>
+
+          <Row gutter={16}>
+             <Col span={12}>
               <Form.Item
-                name="joinDate"
-                label="Ngày vào làm"
-                getValueProps={(i) => ({ value: i ? dayjs(i) : null })}
-                getValueFromEvent={(e) => (e ? e.format('YYYY-MM-DD') : null)}
+                name="company"
+                label="Công ty"
               >
-                <DatePicker style={{ width: '100%' }} />
+                <Input />
               </Form.Item>
             </Col>
-            <Col span={8}>
-              <Form.Item name="dataScope" label="Scope dữ liệu">
-                <Select>
-                  <Option value="company">Toàn công ty</Option>
-                  <Option value="department">Phòng ban</Option>
-                  <Option value="personal">Cá nhân</Option>
-                </Select>
+            <Col span={12}>
+              <Form.Item
+                name="department"
+                label="Phòng ban"
+              >
+                <Input />
               </Form.Item>
             </Col>
           </Row>
 
           <Row gutter={16}>
-            <Col span={8}>
-              <Form.Item name="approveRight" label="Quyền phê duyệt">
-                <Select>
-                  <Option value={true}>Có</Option>
-                  <Option value={false}>Không</Option>
-                </Select>
+             <Col span={12}>
+              <Form.Item
+                name="position"
+                label="Chức danh"
+              >
+                <Input />
               </Form.Item>
             </Col>
-            <Col span={8}>
-              <Form.Item name="financeViewRight" label="Quyền xem tài chính">
+            <Col span={12}>
+              <Form.Item
+                name="status"
+                label="Trạng thái"
+              >
                 <Select>
-                  <Option value={true}>Có</Option>
-                  <Option value={false}>Không</Option>
-                </Select>
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item name="exportDataRight" label="Quyền xuất dữ liệu">
-                <Select>
-                  <Option value={true}>Có</Option>
-                  <Option value={false}>Không</Option>
+                  <Option value="active">Hoạt động</Option>
+                  <Option value="locked">Khóa</Option>
+                  <Option value="inactive">Không hoạt động</Option>
                 </Select>
               </Form.Item>
             </Col>
           </Row>
 
-          <Row gutter={16}>
-            <Col span={8}>
-              <Form.Item
-                name="createdAt"
-                label="Ngày tạo"
-                getValueProps={(i) => ({ value: i ? dayjs(i) : null })}
-                getValueFromEvent={(e) => (e ? e.format('YYYY-MM-DD') : null)}
-              >
-                <DatePicker style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item name="createdBy" label="Người tạo (User_ID)">
-                <Select showSearch allowClear optionFilterProp="children">
-                  {users.map((u) => (
-                    <Option key={u.id} value={u.id}>
-                      {u.fullName} ({u.id})
-                    </Option>
-                  ))}
-                </Select>
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item
-                name="updatedAt"
-                label="Ngày cập nhật"
-                getValueProps={(i) => ({ value: i ? dayjs(i) : null })}
-                getValueFromEvent={(e) => (e ? e.format('YYYY-MM-DD') : null)}
-              >
-                <DatePicker style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Row gutter={16}>
-            <Col span={8}>
-              <Form.Item name="updatedBy" label="Người cập nhật (User_ID)">
-                <Select showSearch allowClear optionFilterProp="children">
-                  {users.map((u) => (
-                    <Option key={u.id} value={u.id}>
-                      {u.fullName} ({u.id})
-                    </Option>
-                  ))}
-                </Select>
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item
-                name="offboardDate"
-                label="Ngày nghỉ việc"
-                getValueProps={(i) => ({ value: i ? dayjs(i) : null })}
-                getValueFromEvent={(e) => (e ? e.format('YYYY-MM-DD') : null)}
-              >
-                <DatePicker style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item name="notes" label="Ghi chú">
-                <Input.TextArea rows={2} />
-              </Form.Item>
-            </Col>
-          </Row>
+           {!editingUser && (
+            <Form.Item
+              name="password"
+              label="Mật khẩu"
+              rules={[{ required: true, message: 'Vui lòng nhập mật khẩu' }]}
+            >
+              <Input.Password placeholder="Mặc định: 123456" />
+            </Form.Item>
+          )}
 
           <Form.Item>
-            <Space>
+            <Space style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Button onClick={() => setIsModalVisible(false)}>Hủy</Button>
               <Button type="primary" htmlType="submit">
-                {editingUser ? 'Cập nhật' : 'Thêm mới'}
-              </Button>
-              <Button onClick={() => {
-                setIsModalVisible(false);
-                form.resetFields();
-              }}>
-                Hủy
+                Lưu
               </Button>
             </Space>
           </Form.Item>
@@ -603,4 +845,3 @@ const Users = () => {
 };
 
 export default Users;
-

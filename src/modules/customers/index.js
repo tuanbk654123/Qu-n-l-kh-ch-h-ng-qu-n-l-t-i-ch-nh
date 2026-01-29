@@ -797,14 +797,14 @@ const Customers = () => {
         loading={loading}
         rowKey="id"
         pagination={{
-          current: page,
-          pageSize: 10,
+          ...tableParams.pagination,
           total: total,
-          onChange: (page) => setPage(page),
+          showSizeChanger: true,
         }}
-        scroll={{ x: 1800 }}
+        onChange={handleTableChange}
+        scroll={{ x: 'max-content', y: 'calc(100vh - 300px)' }}
+        bordered
       />
-
       <Modal
         title={editingCustomer ? 'Sửa khách hàng' : 'Thêm khách hàng'}
         open={isModalVisible}

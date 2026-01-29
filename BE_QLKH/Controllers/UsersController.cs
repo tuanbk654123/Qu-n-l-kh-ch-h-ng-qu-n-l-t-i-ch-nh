@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using MongoDB.Bson;
+using MongoDB.Bson.Serialization.Attributes;
 using MongoDB.Driver;
 using System.Security.Cryptography;
 using System.Text;
@@ -23,33 +24,105 @@ public class UsersController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<object>> GetUsers([FromQuery] string? search, [FromQuery] string? role, [FromQuery] int page = 1)
+    public async Task<ActionResult<object>> GetUsers(
+        [FromQuery] string? search, 
+        [FromQuery] int page = 1,
+        [FromQuery] string? sortField = null,
+        [FromQuery] string? sortOrder = null)
     {
         if (page < 1) page = 1;
+        const int pageSize = 10;
+        var skip = (page - 1) * pageSize;
 
-        var filter = Builders<User>.Filter.Empty;
+        var builder = Builders<User>.Filter;
+        var filter = builder.Empty;
 
+        // Global Search
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var lowered = search.ToLower();
-            filter &= Builders<User>.Filter.Or(
-                Builders<User>.Filter.Where(u => u.FullName.ToLower().Contains(lowered)),
-                Builders<User>.Filter.Where(u => u.Email.ToLower().Contains(lowered)),
-                Builders<User>.Filter.Where(u => u.Username.ToLower().Contains(lowered))
+            var searchRegex = new BsonRegularExpression(System.Text.RegularExpressions.Regex.Escape(search), "i");
+            filter &= builder.Or(
+                builder.Regex(u => u.FullName, searchRegex),
+                builder.Regex(u => u.Email, searchRegex),
+                builder.Regex(u => u.Username, searchRegex),
+                builder.Regex(u => u.EmployeeCode, searchRegex),
+                builder.Regex(u => u.Phone, searchRegex),
+                builder.Regex(u => u.Department, searchRegex),
+                builder.Regex(u => u.Position, searchRegex)
             );
         }
 
-        if (!string.IsNullOrWhiteSpace(role))
+        // Column Filters via Reflection
+        var properties = typeof(User).GetProperties();
+        foreach (var query in Request.Query)
         {
-            filter &= Builders<User>.Filter.Eq(u => u.RoleCode, role);
+            var key = query.Key;
+            var value = query.Value.ToString();
+            
+            if (string.IsNullOrEmpty(value)) continue;
+            if (new[] { "search", "page", "sortfield", "sortorder", "limit" }.Contains(key.ToLower())) continue;
+
+            // Handle special mapping for role
+            var propName = key;
+            if (key.Equals("role", StringComparison.OrdinalIgnoreCase)) propName = "RoleCode";
+
+            var prop = properties.FirstOrDefault(p => p.Name.Equals(propName, StringComparison.OrdinalIgnoreCase));
+            if (prop != null)
+            {
+                var bsonAttr = prop.GetCustomAttributes(typeof(BsonElementAttribute), false)
+                    .FirstOrDefault() as BsonElementAttribute;
+                var dbField = bsonAttr?.ElementName ?? prop.Name;
+                
+                if (prop.PropertyType == typeof(string))
+                {
+                    filter &= builder.Regex(dbField, new BsonRegularExpression(System.Text.RegularExpressions.Regex.Escape(value), "i"));
+                }
+                else if (prop.PropertyType == typeof(int) || prop.PropertyType == typeof(int?))
+                {
+                    if (int.TryParse(value, out int intVal))
+                    {
+                        filter &= builder.Eq(dbField, intVal);
+                    }
+                }
+                else if (prop.PropertyType == typeof(decimal) || prop.PropertyType == typeof(decimal?))
+                {
+                     if (decimal.TryParse(value, out decimal decVal))
+                    {
+                        filter &= builder.Eq(dbField, decVal);
+                    }
+                }
+                else 
+                {
+                     filter &= builder.Regex(dbField, new BsonRegularExpression(System.Text.RegularExpressions.Regex.Escape(value), "i"));
+                }
+            }
         }
 
-        const int pageSize = 10;
-        var skip = (page - 1) * pageSize;
+        // Sorting
+        SortDefinition<User> sort = Builders<User>.Sort.Descending(u => u.LegacyId);
+        if (!string.IsNullOrEmpty(sortField))
+        {
+            var propName = sortField;
+            if (sortField.Equals("role", StringComparison.OrdinalIgnoreCase)) propName = "RoleCode";
+
+            var prop = properties.FirstOrDefault(p => p.Name.Equals(propName, StringComparison.OrdinalIgnoreCase));
+            if (prop != null)
+            {
+                var bsonAttr = prop.GetCustomAttributes(typeof(BsonElementAttribute), false)
+                    .FirstOrDefault() as BsonElementAttribute;
+                var dbField = bsonAttr?.ElementName ?? prop.Name;
+                
+                if (sortOrder?.ToLower() == "asc" || sortOrder?.ToLower() == "ascend")
+                    sort = Builders<User>.Sort.Ascending(dbField);
+                else
+                    sort = Builders<User>.Sort.Descending(dbField);
+            }
+        }
 
         var total = await _users.CountDocumentsAsync(filter);
         var users = await _users
             .Find(filter)
+            .Sort(sort)
             .Skip(skip)
             .Limit(pageSize)
             .ToListAsync();
