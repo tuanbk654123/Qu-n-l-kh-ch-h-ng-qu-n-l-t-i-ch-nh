@@ -35,22 +35,27 @@ public class AuthController : ControllerBase
     [AllowAnonymous]
     public async Task<ActionResult<object>> Login([FromBody] LoginRequest request)
     {
+        Console.WriteLine($"Login attempt for user: {request.Username}");
         var user = await _users.Find(u => u.Username == request.Username).FirstOrDefaultAsync();
         if (user == null)
         {
+            Console.WriteLine($"User not found: {request.Username}");
             return Unauthorized(new { message = "Sai tài khoản hoặc mật khẩu" });
         }
 
         if (!VerifyPassword(request.Password, user.PasswordHash))
         {
+            Console.WriteLine($"Invalid password for user: {request.Username}");
             return Unauthorized(new { message = "Sai tài khoản hoặc mật khẩu" });
         }
 
         if (!string.Equals(user.Status, "active", StringComparison.OrdinalIgnoreCase))
         {
+            Console.WriteLine($"User inactive: {request.Username}");
             return Unauthorized(new { message = "Tài khoản đang không hoạt động hoặc đã nghỉ việc" });
         }
 
+        Console.WriteLine($"Login successful for user: {request.Username}");
         var token = GenerateJwtToken(user);
 
         return Ok(new
@@ -128,10 +133,22 @@ public class AuthController : ControllerBase
             return false;
         }
 
+        // 1. Check if it matches the hash
         var passwordBytes = Encoding.UTF8.GetBytes(password);
         var hashBytes = System.Security.Cryptography.SHA256.HashData(passwordBytes);
         var hashString = Convert.ToHexString(hashBytes);
-        return string.Equals(hashString, storedHash, StringComparison.OrdinalIgnoreCase);
+        if (string.Equals(hashString, storedHash, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        // 2. Check if it matches plain text (Legacy support)
+        if (storedHash == password)
+        {
+            return true;
+        }
+
+        return false;
     }
 
     private string GenerateJwtToken(User user)

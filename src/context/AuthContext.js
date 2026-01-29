@@ -84,7 +84,9 @@ export const AuthProvider = ({ children }) => {
       return { success: false, message: 'Đăng nhập thất bại' };
     } catch (error) {
       setAuthToken(null);
-      return { success: false, message: error.response?.data?.message || 'Đăng nhập thất bại' };
+      console.error('Login error:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Đăng nhập thất bại';
+      return { success: false, message: errorMessage };
     }
   };
 

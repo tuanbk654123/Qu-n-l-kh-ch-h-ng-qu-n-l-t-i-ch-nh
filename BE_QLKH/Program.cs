@@ -74,7 +74,9 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:3000")
+        policy.SetIsOriginAllowed(origin => 
+                new Uri(origin).Host == "localhost" || 
+                origin.EndsWith(".trycloudflare.com"))
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
@@ -82,6 +84,13 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+// Logging middleware
+app.Use(async (context, next) =>
+{
+    Console.WriteLine($"[{DateTime.Now}] Request: {context.Request.Method} {context.Request.Path}");
+    await next();
+});
 
 if (app.Environment.IsDevelopment())
 {

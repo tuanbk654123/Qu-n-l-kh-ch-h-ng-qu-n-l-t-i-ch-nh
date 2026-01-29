@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace BE_QLKH.Controllers;
 
@@ -317,5 +319,12 @@ public class UsersController : ControllerBase
         var result = await _users.DeleteOneAsync(u => u.LegacyId == id);
         if (result.DeletedCount == 0) return NotFound(new { message = "User not found" });
         return Ok(new { message = "User deleted" });
+    }
+
+    private static string HashPassword(string password)
+    {
+        var passwordBytes = Encoding.UTF8.GetBytes(password);
+        var hashBytes = SHA256.HashData(passwordBytes);
+        return Convert.ToHexString(hashBytes);
     }
 }

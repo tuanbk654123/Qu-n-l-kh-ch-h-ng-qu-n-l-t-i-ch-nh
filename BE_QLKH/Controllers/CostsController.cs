@@ -203,7 +203,7 @@ public class CostsController : ControllerBase
             // If no specific manager, notify all managers
             if (!managerNotified)
             {
-                await SendNotificationToRole("quan_ly", "Phiếu chi mới cần duyệt", 
+                await SendNotificationToRole("ip_manager", "Phiếu chi mới cần duyệt", 
                     $"{userName} đã tạo phiếu chi #{input.LegacyId}. Vui lòng duyệt.", "CostApproval", input.LegacyId.ToString());
             }
             
@@ -253,7 +253,7 @@ public class CostsController : ControllerBase
              else if (input.PaymentStatus == "Huỷ")
              {
                  var userRole = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
-                 if (userRole == "quan_ly") input.ApproverManager = "Từ chối";
+                 if (userRole == "ip_manager" || userRole == "quan_ly") input.ApproverManager = "Từ chối";
                  else if (userRole == "giam_doc") input.ApproverDirector = "Từ chối";
                  else if (userRole == "ke_toan") input.AccountantReview = "Từ chối";
              }
@@ -280,12 +280,24 @@ public class CostsController : ControllerBase
     }
 
     [HttpPost("{id:int}/approve")]
-    public async Task<ActionResult<object>> ApproveCost(int id)
+    public async Task<ActionResult<object>> ApproveCost(int id, [FromBody] JsonElement body)
     {
         var userIdStr = User.FindFirst("legacy_id")?.Value;
         if (!int.TryParse(userIdStr, out var userId)) return Unauthorized();
         var userRole = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
         var userName = User.Identity?.Name ?? "Unknown";
+
+        List<int> extraRecipients = new List<int>();
+        if (body.ValueKind == JsonValueKind.Object && body.TryGetProperty("notificationRecipients", out var recipientsProp))
+        {
+            if (recipientsProp.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in recipientsProp.EnumerateArray())
+                {
+                    if (item.TryGetInt32(out int rid)) extraRecipients.Add(rid);
+                }
+            }
+        }
 
         var cost = await _costs.Find(c => c.LegacyId == id).FirstOrDefaultAsync();
         if (cost == null) return NotFound(new { message = "Cost not found" });
@@ -302,7 +314,7 @@ public class CostsController : ControllerBase
         // Workflow Logic
         if (cost.PaymentStatus == "Đợi duyệt")
         {
-            if (userRole == "quan_ly" || userRole == "admin")
+            if (userRole == "ip_manager" || userRole == "quan_ly" || userRole == "admin")
             {
                 nextStatus = "Quản lý duyệt";
                 cost.ApproverManager = "Đã duyệt";
@@ -313,7 +325,7 @@ public class CostsController : ControllerBase
                 
                 if (requester != null)
                 {
-                    if (requester.RoleCode == "quan_ly")
+                    if (requester.RoleCode == "ip_manager" || requester.RoleCode == "quan_ly")
                     {
                         if (!string.IsNullOrEmpty(requester.ManagerId) && int.TryParse(requester.ManagerId, out int directManagerId))
                         {
@@ -400,7 +412,7 @@ public class CostsController : ControllerBase
         // Let's send to role if NO specific users found, OR if role is 'ke_toan' (pool)
         if (!string.IsNullOrEmpty(roleToNotifyFallback))
         {
-            if (userIdsToNotify.Count == 0 || roleToNotifyFallback == "ke_toan")
+            if (userIdsToNotify.Count == 0 || roleToNotifyFallback == "accountant" || roleToNotifyFallback == "ke_toan")
             {
                 await SendNotificationToRole(roleToNotifyFallback, notificationTitle, notificationMsg, "CostApproval", id.ToString());
             }

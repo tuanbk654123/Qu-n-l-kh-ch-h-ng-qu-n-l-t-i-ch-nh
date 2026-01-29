@@ -1020,7 +1020,7 @@ public class DatabaseSeeder : IHostedService
             AddQlcpFieldPermissions("paymentMethod", "CREATE", "NONE", "UPDATE", "READ", "READ");
             AddQlcpFieldPermissions("accountNumber", "CREATE", "NONE", "UPDATE", "READ", "READ");
             AddQlcpFieldPermissions("bank", "CREATE", "NONE", "UPDATE", "READ", "READ");
-            AddQlcpFieldPermissions("paymentStatus", "CREATE", "NONE", "UPDATE", "READ", "READ");
+            AddQlcpFieldPermissions("paymentStatus", "CREATE", "UPDATE", "UPDATE", "UPDATE", "READ");
 
             AddQlcpFieldPermissions("managerApproval", "READ", "UPDATE", "READ", "READ", "READ");
             AddQlcpFieldPermissions("directorApproval", "READ", "READ", "READ", "UPDATE", "READ");
@@ -1059,6 +1059,45 @@ public class DatabaseSeeder : IHostedService
                 await fieldPermissionsCollection.InsertManyAsync(fieldPermissions, cancellationToken: cancellationToken);
             }
         }
+
+        // Force update permissions to ensure consistency (fix for Manager Approval issue)
+        var fpCollection = db.GetCollection<FieldPermission>("field_permissions");
+        
+        // 1. Ensure IP Manager has Write permission on managerApproval
+        var managerUpdate = Builders<FieldPermission>.Update.Set(p => p.PermissionLevel, "W");
+        await fpCollection.UpdateOneAsync(
+            p => p.ModuleCode == "qlcp" && p.FieldCode == "managerApproval" && p.RoleCode == "ip_manager",
+            managerUpdate,
+            new UpdateOptions { IsUpsert = true },
+            cancellationToken
+        );
+
+        // 2. Ensure Director has Write permission on directorApproval
+        var directorUpdate = Builders<FieldPermission>.Update.Set(p => p.PermissionLevel, "W");
+        await fpCollection.UpdateOneAsync(
+            p => p.ModuleCode == "qlcp" && p.FieldCode == "directorApproval" && p.RoleCode == "director",
+            directorUpdate,
+            new UpdateOptions { IsUpsert = true },
+            cancellationToken
+        );
+
+        // 3. Ensure IP Manager has Write permission on paymentStatus
+        var managerPaymentStatusUpdate = Builders<FieldPermission>.Update.Set(p => p.PermissionLevel, "W");
+        await fpCollection.UpdateOneAsync(
+            p => p.ModuleCode == "qlcp" && p.FieldCode == "paymentStatus" && p.RoleCode == "ip_manager",
+            managerPaymentStatusUpdate,
+            new UpdateOptions { IsUpsert = true },
+            cancellationToken
+        );
+
+        // 4. Ensure Director has Write permission on paymentStatus
+        var directorPaymentStatusUpdate = Builders<FieldPermission>.Update.Set(p => p.PermissionLevel, "W");
+        await fpCollection.UpdateOneAsync(
+            p => p.ModuleCode == "qlcp" && p.FieldCode == "paymentStatus" && p.RoleCode == "director",
+            directorPaymentStatusUpdate,
+            new UpdateOptions { IsUpsert = true },
+            cancellationToken
+        );
     }
 
     private static string HashPassword(string password)

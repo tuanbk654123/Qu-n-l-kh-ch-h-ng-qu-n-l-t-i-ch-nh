@@ -29,6 +29,7 @@ import {
   FileTextOutlined,
   CheckOutlined,
   CloseOutlined,
+  BellOutlined,
 } from '@ant-design/icons';
 import axios from 'axios';
 import dayjs from 'dayjs';
@@ -89,22 +90,30 @@ const Costs = () => {
   }, [location.state]);
 
   const handleApproveAction = () => {
-    Modal.confirm({
-      title: 'Xác nhận duyệt',
-      content: 'Bạn có chắc chắn muốn duyệt phiếu chi này?',
-      okText: 'Duyệt',
-      cancelText: 'Hủy',
-      onOk: async () => {
-        try {
-            const res = await axios.post(`/api/costs/${editingCost.id}/approve`);
-            message.success(res.data.message || 'Duyệt thành công');
-            setIsModalVisible(false);
-            fetchCosts();
-            refreshNotifications();
-        } catch (error) {
-            handleApiError(error, 'Lỗi khi duyệt phiếu');
-        }
-      },
+    form.validateFields(['notificationRecipients']).then(values => {
+      Modal.confirm({
+        title: 'Xác nhận duyệt',
+        content: 'Bạn có chắc chắn muốn duyệt phiếu chi này?',
+        okText: 'Duyệt',
+        cancelText: 'Hủy',
+        onOk: async () => {
+          try {
+              const recipients = form.getFieldValue('notificationRecipients') || [];
+              const res = await axios.post(`/api/costs/${editingCost.id}/approve`, {
+                  notificationRecipients: recipients
+              });
+              message.success(res.data.message || 'Duyệt thành công');
+              setIsModalVisible(false);
+              fetchCosts();
+              refreshNotifications();
+          } catch (error) {
+              handleApiError(error, 'Lỗi khi duyệt phiếu');
+          }
+        },
+      });
+    }).catch(errorInfo => {
+        message.error('Vui lòng chọn người nhận thông báo trước khi duyệt');
+        // Scroll to the field if needed, but message is usually enough
     });
   };
 
@@ -151,6 +160,16 @@ const Costs = () => {
     const level = fieldPermissions[key];
     return level === 'W' || level === 'A';
   };
+
+  const [notificationApi, contextHolder] = notification.useNotification();
+
+  // Debug logs
+  useEffect(() => {
+    console.log('Current User:', user);
+    console.log('User Role:', user?.role);
+    console.log('Editing Cost:', editingCost);
+    console.log('Field Permissions:', fieldPermissions);
+  }, [user, editingCost, fieldPermissions]);
 
   const fetchCosts = useCallback(async () => {
     setLoading(true);
@@ -234,6 +253,9 @@ const Costs = () => {
         const newStatus = values.paymentStatus;
         const oldStatus = editingCost.paymentStatus;
         let notifData = null;
+        
+        // Manual recipients from form
+        const manualRecipients = values.notificationRecipients || [];
 
         // Lấy thông tin người tạo phiếu để biết gửi thông báo cho ai (Nhân viên & Manager của họ)
         let creator = null;
@@ -263,12 +285,12 @@ const Costs = () => {
                 message: `Phiếu chi #${editingCost.id} đã bị từ chối. Lý do: ${values.rejectionReason}`,
                 type: 'CostApproval',
                 relatedId: editingCost.id.toString(),
-                userIds: [...new Set(userIdsToNotify)]
+                userIds: [...new Set([...userIdsToNotify, ...manualRecipients])]
              };
 
              notification.info({
                  message: '📧 Hệ thống Email (Gmail)',
-                 description: `Đã gửi email TỪ CHỐI đến Requester và Manager. Lý do: ${values.rejectionReason}`,
+                 description: `Đã gửi email TỪ CHỐI đến Requester, Manager và ${manualRecipients.length} người khác. Lý do: ${values.rejectionReason}`,
                  placement: 'topRight',
                  duration: 5,
              });
@@ -329,12 +351,12 @@ const Costs = () => {
                 message: `Phiếu chi #${editingCost.id} đã được thanh toán hoàn tất.`,
                 type: 'CostApproval',
                 relatedId: editingCost.id.toString(),
-                userIds: [...new Set(userIdsToNotify)]
+                userIds: [...new Set([...userIdsToNotify, ...manualRecipients])]
              };
 
              notification.success({
                 message: '📧 Hệ thống Email (Gmail)',
-                description: 'Đã gửi email xác nhận thanh toán cho Nhân viên và Quản lý.',
+                description: `Đã gửi email xác nhận thanh toán cho Nhân viên, Quản lý và ${manualRecipients.length} người khác.`,
                 placement: 'topRight',
                 duration: 5,
              });
@@ -611,7 +633,11 @@ const Costs = () => {
         <Col span={24}>
             <Form.Item
                 name="notificationRecipients"
-                label="Gửi thông báo đến"
+                label={
+                    <span>
+                        Gửi thông báo đến <BellOutlined style={{ color: '#1890ff' }} />
+                    </span>
+                }
                 rules={[{ required: true, message: 'Vui lòng chọn người nhận thông báo' }]}
             >
                 <Select
@@ -890,19 +916,28 @@ const Costs = () => {
       <Row gutter={16}>
         {canReadField('paymentStatus') && (
           <Col span={12}>
-            <Form.Item
-              name="paymentStatus"
-              label="Trạng thái thanh toán"
-            >
-              <Select disabled={!canEditField('paymentStatus')}>
-                <Option value="Đợi duyệt">Đợi duyệt</Option>
-                <Option value="Quản lý duyệt">Quản lý duyệt</Option>
-                <Option value="Giám đốc duyệt">Giám đốc duyệt</Option>
-                <Option value="Đã thanh toán">Đã thanh toán</Option>
-                <Option value="Thanh toán 1 phần">Thanh toán 1 phần</Option>
-                <Option value="Huỷ">Huỷ</Option>
-              </Select>
-            </Form.Item>
+            {!editingCost ? (
+              <Form.Item label="Trạng thái thanh toán">
+                 <Tag color="orange">ĐỢI DUYỆT</Tag>
+                 <Form.Item name="paymentStatus" hidden initialValue="Đợi duyệt">
+                   <Input />
+                 </Form.Item>
+              </Form.Item>
+            ) : (
+              <Form.Item
+                name="paymentStatus"
+                label="Trạng thái thanh toán"
+              >
+                <Select disabled={!canEditField('paymentStatus')}>
+                  <Option value="Đợi duyệt">Đợi duyệt</Option>
+                  <Option value="Quản lý duyệt">Quản lý duyệt</Option>
+                  <Option value="Giám đốc duyệt">Giám đốc duyệt</Option>
+                  <Option value="Đã thanh toán">Đã thanh toán</Option>
+                  <Option value="Thanh toán 1 phần">Thanh toán 1 phần</Option>
+                  <Option value="Huỷ">Huỷ</Option>
+                </Select>
+              </Form.Item>
+            )}
           </Col>
         )}
         {canReadField('rejectionReason') && (
@@ -1158,23 +1193,58 @@ const Costs = () => {
           <Button key="back" onClick={() => setIsModalVisible(false)}>
             Đóng
           </Button>,
-          (editingCost && (canEditField('approverManager') || canEditField('approverDirector'))) ? (
-            <>
-              <Button key="reject" danger onClick={handleRejectAction}>
-                Từ chối
-              </Button>
-              <Button key="submit" onClick={form.submit} style={{ marginRight: 8 }}>
+          (() => {
+            if (!editingCost) {
+              return (
+                <Button key="submit" type="primary" onClick={form.submit}>
+                  Gửi duyệt
+                </Button>
+              );
+            }
+
+            const { paymentStatus } = editingCost;
+            // Quyền duyệt của Manager: Chỉ khi Đợi duyệt
+            const allowManager = canEditField('approverManager') && paymentStatus === 'Đợi duyệt';
+            // Quyền duyệt của Director: Đợi duyệt (nếu được nhảy cóc) hoặc Quản lý duyệt
+            const allowDirector = canEditField('approverDirector') && ['Đợi duyệt', 'Quản lý duyệt'].includes(paymentStatus);
+
+            if (allowManager || allowDirector) {
+              return (
+                <>
+                  <Button key="reject" danger onClick={handleRejectAction}>
+                    Từ chối
+                  </Button>
+                  <Button key="submit" onClick={form.submit} style={{ marginRight: 8 }}>
+                    Lưu
+                  </Button>
+                  <Button key="approve" type="primary" onClick={handleApproveAction}>
+                    Duyệt
+                  </Button>
+                </>
+              );
+            }
+
+            // Nếu là người có quyền duyệt nhưng trạng thái không phù hợp (đã duyệt rồi hoặc đã qua cấp duyệt)
+            // Vẫn cho hiện nút Lưu nếu muốn sửa thông tin (trừ khi đã thanh toán/huỷ)
+            // if (canEditField('approverManager') || canEditField('approverDirector')) {
+            //    return null;
+            // }
+
+            // Người dùng thường (Sales): Ẩn nút nếu đã hoàn thành/hủy hoặc đang trong quá trình duyệt
+            // Tức là chỉ cho phép sửa khi "Đợi duyệt" (hoặc trạng thái bị từ chối nếu có logic đó)
+            // Tuy nhiên, theo yêu cầu, nếu "đã nhấn phê duyệt" (context người duyệt) thì ẩn.
+            // Còn người thường, nếu phiếu đã được duyệt (Quản lý duyệt/Giám đốc duyệt/Đã thanh toán) thì cũng nên ẩn nút Lưu?
+            // Tạm thời ẩn nếu Đã thanh toán hoặc Huỷ.
+            if (['Đã thanh toán', 'Huỷ'].includes(paymentStatus)) {
+                 return null;
+            }
+
+            return (
+              <Button key="submit" type="primary" onClick={form.submit}>
                 Lưu
               </Button>
-              <Button key="approve" type="primary" onClick={handleApproveAction}>
-                Duyệt
-              </Button>
-            </>
-          ) : (
-            <Button key="submit" type="primary" onClick={form.submit}>
-              {editingCost ? "Lưu" : "Gửi duyệt"}
-            </Button>
-          )
+            );
+          })()
         ]}
       >
         <Form
