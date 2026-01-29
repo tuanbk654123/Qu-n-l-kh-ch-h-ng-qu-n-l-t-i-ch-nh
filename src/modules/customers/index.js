@@ -23,18 +23,52 @@ import {
 } from '@ant-design/icons';
 import axios from 'axios';
 import dayjs from 'dayjs';
+import { useAuth } from '../../context/AuthContext';
 import { handleApiError } from '../../utils/errorHelper';
 import './index.css';
 
 const Customers = () => {
+  const { isAdmin } = useAuth();
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
+  const [tableParams, setTableParams] = useState({
+    pagination: {
+      current: 1,
+      pageSize: 10,
+      showSizeChanger: true,
+    },
+  });
   const [total, setTotal] = useState(0);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
   const [form] = Form.useForm();
+  const [activeTab, setActiveTab] = useState('1');
+
+  const onFinishFailed = ({ errorFields }) => {
+    if (errorFields.length > 0) {
+      const firstErrorField = errorFields[0].name[0];
+      const fieldToTab = {
+        name: '1', code: '1', taxCode: '1', address: '1', city: '1', district: '1', ward: '1', 
+        phone: '1', email: '1', contactPerson: '1', contactPhone: '1', contactEmail: '1',
+        representativeName: '1', representativePosition: '1', idNumber: '1',
+        businessNeeds: '2', potentialLevel: '2', priority: '2', sourceClassification: '2', nsnnSource: '2',
+        brandName: '3', productsServices: '3', ipGroup: '3', owner: '3', protectionTerritory: '3', authorization: '3',
+        filingStatus: '4', filingDate: '4', applicationCode: '4', issueDate: '4', expiryDate: '4', applicationReviewStatus: '4', processingDeadline: '4',
+        renewalCycle: '5', renewalDate: '5', reminderDate: '5', reminderStatus: '5',
+        consultingStatus: '6', contractStatus: '6', contractNumber: '6', contractValue: '6', stateFee: '6', additionalFee: '6', startDate: '6', endDate: '6', implementationDays: '6',
+        createdBy: '7', updatedBy: '7', updatedAt: '7', documentLink: '7'
+      };
+      
+      const tabKey = fieldToTab[firstErrorField];
+      if (tabKey) {
+        setActiveTab(tabKey);
+        setTimeout(() => {
+          form.scrollToField(firstErrorField, { behavior: 'smooth', block: 'center' });
+        }, 100);
+      }
+    }
+  };
 
   const [fieldPermissions, setFieldPermissions] = useState({});
 
@@ -42,29 +76,100 @@ const Customers = () => {
   const { TextArea } = Input;
 
   const canReadField = (field) => {
+    if (isAdmin && isAdmin()) return true;
     const level = fieldPermissions[field];
     return level && level !== 'N';
   };
 
   const canEditField = (field) => {
+    if (isAdmin && isAdmin()) return true;
     const level = fieldPermissions[field];
     return level === 'W' || level === 'A';
   };
 
+  const getColumnSearchProps = (dataIndex) => ({
+    filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }) => (
+      <div style={{ padding: 8 }} onKeyDown={(e) => e.stopPropagation()}>
+        <Input
+          placeholder={`Tìm kiếm ${dataIndex}`}
+          value={selectedKeys[0]}
+          onChange={(e) => setSelectedKeys(e.target.value ? [e.target.value] : [])}
+          onPressEnter={() => confirm()}
+          style={{ marginBottom: 8, display: 'block' }}
+        />
+        <Space>
+          <Button
+            type="primary"
+            onClick={() => confirm()}
+            icon={<SearchOutlined />}
+            size="small"
+            style={{ width: 90 }}
+          >
+            Tìm kiếm
+          </Button>
+          <Button
+            onClick={() => {
+              clearFilters();
+              confirm();
+            }}
+            size="small"
+            style={{ width: 90 }}
+          >
+            Đặt lại
+          </Button>
+        </Space>
+      </div>
+    ),
+    filterIcon: (filtered) => (
+      <SearchOutlined style={{ color: filtered ? '#1890ff' : undefined }} />
+    ),
+  });
+
   const fetchCustomers = useCallback(async () => {
     setLoading(true);
     try {
+      // Clean filters
+      const cleanFilters = {};
+      if (tableParams.filters) {
+        Object.keys(tableParams.filters).forEach(key => {
+          if (tableParams.filters[key] && tableParams.filters[key].length > 0) {
+            cleanFilters[key] = tableParams.filters[key][0];
+          }
+        });
+      }
+
       const response = await axios.get('/api/customers', {
-        params: { search, page },
+        params: { 
+          search, 
+          page: tableParams.pagination?.current || 1, 
+          pageSize: tableParams.pagination?.pageSize || 10,
+          sortField: tableParams.sortField,
+          sortOrder: tableParams.sortOrder,
+          ...cleanFilters
+        },
       });
       setCustomers(response.data.customers);
       setTotal(response.data.customerCount);
+      setTableParams((prev) => ({
+        ...prev,
+        pagination: {
+          ...prev.pagination,
+          total: response.data.customerCount,
+        },
+      }));
     } catch (error) {
       handleApiError(error, 'Lỗi khi tải dữ liệu khách hàng');
     } finally {
       setLoading(false);
     }
-  }, [search, page]);
+  }, [
+    search, 
+    tableParams.pagination?.current, 
+    tableParams.pagination?.pageSize, 
+    tableParams.sortField, 
+    tableParams.sortOrder, 
+    tableParams.filters
+  ]);
 
   const fetchPermissions = useCallback(async () => {
     try {
@@ -82,14 +187,25 @@ const Customers = () => {
     fetchCustomers();
   }, [fetchCustomers, fetchPermissions]);
 
+  const handleTableChange = (pagination, filters, sorter) => {
+    setTableParams({
+      pagination,
+      filters,
+      sortOrder: Array.isArray(sorter) ? undefined : sorter.order,
+      sortField: Array.isArray(sorter) ? undefined : sorter.field,
+    });
+  };
+
   const handleAdd = () => {
     setEditingCustomer(null);
     form.resetFields();
+    setActiveTab('1');
     setIsModalVisible(true);
   };
 
   const handleEdit = (record) => {
     setEditingCustomer(record);
+    setActiveTab('1');
     const formattedRecord = {
       ...record,
       startDate: record.startDate ? dayjs(record.startDate) : null,
@@ -146,6 +262,11 @@ const Customers = () => {
     }
   };
 
+  const formatCurrency = (value) => {
+    if (!value) return '';
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
+  };
+
   const columns = [
     {
       title: 'ID',
@@ -153,13 +274,17 @@ const Customers = () => {
       key: 'id',
       width: 60,
       fixed: 'left',
+      sorter: true,
+      ...getColumnSearchProps('id'),
     },
     {
       title: 'Tên khách hàng',
       dataIndex: 'name',
       key: 'name',
-      width: 150,
+      width: 180,
       fixed: 'left',
+      sorter: true,
+      ...getColumnSearchProps('name'),
       hidden: !canReadField('name'),
     },
     {
@@ -167,27 +292,62 @@ const Customers = () => {
       dataIndex: 'taxCode',
       key: 'taxCode',
       width: 120,
+      sorter: true,
+      ...getColumnSearchProps('taxCode'),
       hidden: !canReadField('taxCode'),
     },
     {
       title: 'Công ty',
       dataIndex: 'company',
       key: 'company',
-      width: 150,
-      hidden: !canReadField('brandName'),
+      width: 180,
+      sorter: true,
+      ...getColumnSearchProps('company'),
+      hidden: !canReadField('company'),
+    },
+    {
+      title: 'Địa chỉ',
+      dataIndex: 'address',
+      key: 'address',
+      width: 200,
+      sorter: true,
+      ...getColumnSearchProps('address'),
+      hidden: !canReadField('address'),
     },
     {
       title: 'Người đại diện',
       dataIndex: 'representativeName',
       key: 'representativeName',
       width: 150,
+      sorter: true,
+      ...getColumnSearchProps('representativeName'),
       hidden: !canReadField('representativeName'),
+    },
+    {
+      title: 'Chức vụ',
+      dataIndex: 'representativePosition',
+      key: 'representativePosition',
+      width: 120,
+      sorter: true,
+      ...getColumnSearchProps('representativePosition'),
+      hidden: !canReadField('representativePosition'),
+    },
+    {
+      title: 'SĐT Đại diện',
+      dataIndex: 'representativePhone',
+      key: 'representativePhone',
+      width: 120,
+      sorter: true,
+      ...getColumnSearchProps('representativePhone'),
+      hidden: !canReadField('representativePhone'),
     },
     {
       title: 'Email',
       dataIndex: 'email',
       key: 'email',
       width: 180,
+      sorter: true,
+      ...getColumnSearchProps('email'),
       hidden: !canReadField('email'),
     },
     {
@@ -195,13 +355,44 @@ const Customers = () => {
       dataIndex: 'phone',
       key: 'phone',
       width: 120,
+      sorter: true,
+      ...getColumnSearchProps('phone'),
       hidden: !canReadField('phone'),
+    },
+    {
+      title: 'Nhu cầu',
+      dataIndex: 'businessNeeds',
+      key: 'businessNeeds',
+      width: 150,
+      sorter: true,
+      ...getColumnSearchProps('businessNeeds'),
+      hidden: !canReadField('businessNeeds'),
+    },
+    {
+      title: 'Quy mô',
+      dataIndex: 'businessScale',
+      key: 'businessScale',
+      width: 120,
+      sorter: true,
+      ...getColumnSearchProps('businessScale'),
+      hidden: !canReadField('businessScale'),
+    },
+    {
+      title: 'Ngành nghề',
+      dataIndex: 'businessIndustry',
+      key: 'businessIndustry',
+      width: 150,
+      sorter: true,
+      ...getColumnSearchProps('businessIndustry'),
+      hidden: !canReadField('businessIndustry'),
     },
     {
       title: 'Trạng thái',
       dataIndex: 'status',
       key: 'status',
       width: 120,
+      sorter: true,
+      ...getColumnSearchProps('status'),
       render: (status) => (
         <Tag color={status === 'active' ? 'green' : 'red'}>
           {status === 'active' ? 'Hoạt động' : 'Không hoạt động'}
@@ -209,10 +400,12 @@ const Customers = () => {
       ),
     },
     {
-      title: 'Mức độ tiềm năng',
+      title: 'Tiềm năng',
       dataIndex: 'potentialLevel',
       key: 'potentialLevel',
-      width: 150,
+      width: 120,
+      sorter: true,
+      ...getColumnSearchProps('potentialLevel'),
       hidden: !canReadField('potentialLevel'),
     },
     {
@@ -220,14 +413,217 @@ const Customers = () => {
       dataIndex: 'priority',
       key: 'priority',
       width: 100,
+      sorter: true,
+      ...getColumnSearchProps('priority'),
       hidden: !canReadField('priority'),
+    },
+    {
+      title: 'Nguồn',
+      dataIndex: 'sourceClassification',
+      key: 'sourceClassification',
+      width: 120,
+      sorter: true,
+      ...getColumnSearchProps('sourceClassification'),
+      hidden: !canReadField('sourceClassification'),
+    },
+    {
+      title: 'Nguồn NSNN',
+      dataIndex: 'nsnnSource',
+      key: 'nsnnSource',
+      width: 120,
+      sorter: true,
+      ...getColumnSearchProps('nsnnSource'),
+      hidden: !canReadField('nsnnSource'),
     },
     {
       title: 'Tình trạng tư vấn',
       dataIndex: 'consultingStatus',
       key: 'consultingStatus',
       width: 150,
+      sorter: true,
+      ...getColumnSearchProps('consultingStatus'),
       hidden: !canReadField('consultingStatus'),
+    },
+    {
+      title: 'Nhóm SHTT',
+      dataIndex: 'ipGroup',
+      key: 'ipGroup',
+      width: 120,
+      sorter: true,
+      ...getColumnSearchProps('ipGroup'),
+      hidden: !canReadField('ipGroup'),
+    },
+    {
+      title: 'SP/Dịch vụ',
+      dataIndex: 'productsServices',
+      key: 'productsServices',
+      width: 150,
+      sorter: true,
+      ...getColumnSearchProps('productsServices'),
+      hidden: !canReadField('productsServices'),
+    },
+    {
+      title: 'Bản quyền',
+      dataIndex: 'copyrightStatus',
+      key: 'copyrightStatus',
+      width: 150,
+      sorter: true,
+      ...getColumnSearchProps('copyrightStatus'),
+      hidden: !canReadField('copyrightStatus'),
+    },
+    {
+      title: 'Nhãn hiệu',
+      dataIndex: 'trademarkStatus',
+      key: 'trademarkStatus',
+      width: 150,
+      sorter: true,
+      ...getColumnSearchProps('trademarkStatus'),
+      hidden: !canReadField('trademarkStatus'),
+    },
+    {
+      title: 'Sáng chế',
+      dataIndex: 'patentStatus',
+      key: 'patentStatus',
+      width: 150,
+      sorter: true,
+      ...getColumnSearchProps('patentStatus'),
+      hidden: !canReadField('patentStatus'),
+    },
+    {
+      title: 'KDCN',
+      dataIndex: 'industrialDesign',
+      key: 'industrialDesign',
+      width: 150,
+      sorter: true,
+      ...getColumnSearchProps('industrialDesign'),
+      hidden: !canReadField('industrialDesign'),
+    },
+    {
+      title: 'Hợp đồng',
+      dataIndex: 'contractStatus',
+      key: 'contractStatus',
+      width: 150,
+      sorter: true,
+      ...getColumnSearchProps('contractStatus'),
+      hidden: !canReadField('contractStatus'),
+    },
+    {
+      title: 'Giá trị HĐ',
+      dataIndex: 'contractValue',
+      key: 'contractValue',
+      width: 150,
+      sorter: true,
+      ...getColumnSearchProps('contractValue'),
+      render: (val) => formatCurrency(val),
+      hidden: !canReadField('contractValue'),
+    },
+    {
+      title: 'Đã thanh toán',
+      dataIndex: 'contractPaid',
+      key: 'contractPaid',
+      width: 120,
+      sorter: true,
+      ...getColumnSearchProps('contractPaid'),
+      hidden: !canReadField('contractPaid'),
+    },
+    {
+      title: 'Tổng đơn',
+      dataIndex: 'totalOrders',
+      key: 'totalOrders',
+      width: 100,
+      sorter: true,
+      ...getColumnSearchProps('totalOrders'),
+      hidden: !canReadField('totalOrders'),
+    },
+    {
+      title: 'Tổng doanh thu',
+      dataIndex: 'totalRevenue',
+      key: 'totalRevenue',
+      width: 150,
+      sorter: true,
+      ...getColumnSearchProps('totalRevenue'),
+      render: (val) => formatCurrency(val),
+      hidden: !canReadField('totalRevenue'),
+    },
+    {
+      title: 'Ngày bắt đầu',
+      dataIndex: 'startDate',
+      key: 'startDate',
+      width: 120,
+      sorter: true,
+      ...getColumnSearchProps('startDate'),
+      hidden: !canReadField('startDate'),
+    },
+    {
+      title: 'Ngày kết thúc',
+      dataIndex: 'endDate',
+      key: 'endDate',
+      width: 120,
+      sorter: true,
+      ...getColumnSearchProps('endDate'),
+      hidden: !canReadField('endDate'),
+    },
+    {
+      title: 'Số ngày TK',
+      dataIndex: 'implementationDays',
+      key: 'implementationDays',
+      width: 120,
+      sorter: true,
+      ...getColumnSearchProps('implementationDays'),
+      hidden: !canReadField('implementationDays'),
+    },
+    {
+      title: 'Ngày tham gia',
+      dataIndex: 'joinDate',
+      key: 'joinDate',
+      width: 120,
+      sorter: true,
+      ...getColumnSearchProps('joinDate'),
+      hidden: !canReadField('joinDate'),
+    },
+    {
+      title: 'Tình trạng nộp đơn',
+      dataIndex: 'filingStatus',
+      key: 'filingStatus',
+      width: 150,
+      sorter: true,
+      ...getColumnSearchProps('filingStatus'),
+      hidden: !canReadField('filingStatus'),
+    },
+    {
+      title: 'Link hồ sơ',
+      dataIndex: 'documentLink',
+      key: 'documentLink',
+      width: 150,
+      sorter: true,
+      render: (text) => text ? <a href={text} target="_blank" rel="noopener noreferrer">Xem</a> : '',
+      hidden: !canReadField('documentLink'),
+    },
+    {
+      title: 'Uỷ quyền',
+      dataIndex: 'authorization',
+      key: 'authorization',
+      width: 120,
+      sorter: true,
+      ...getColumnSearchProps('authorization'),
+      hidden: !canReadField('authorization'),
+    },
+    {
+      title: 'Xét duyệt đơn',
+      dataIndex: 'applicationReviewStatus',
+      key: 'applicationReviewStatus',
+      width: 150,
+      sorter: true,
+      ...getColumnSearchProps('applicationReviewStatus'),
+      hidden: !canReadField('applicationReviewStatus'),
+    },
+    {
+      title: 'Ghi chú',
+      dataIndex: 'notes',
+      key: 'notes',
+      width: 200,
+      ...getColumnSearchProps('notes'),
+      hidden: !canReadField('notes'),
     },
     {
       title: 'Thao tác',
@@ -493,7 +889,7 @@ const Customers = () => {
             >
               <Select allowClear disabled={!canEditField('protectionTerritory')}>
                 <Option value="Việt Nam">Việt Nam</Option>
-                <Option value="US">US</Option>
+                <Option value="Mỹ">Mỹ</Option>
                 <Option value="Madrid">Madrid</Option>
                 <Option value="Wipo">Wipo</Option>
               </Select>
@@ -701,6 +1097,7 @@ const Customers = () => {
             <Form.Item
               name="startDate"
               label="Ngày bắt đầu"
+              rules={[{ required: true, message: 'Vui lòng chọn ngày bắt đầu' }]}
             >
               <DatePicker style={{ width: '100%' }} disabled={!canEditField('startDate')} />
             </Form.Item>
@@ -777,7 +1174,13 @@ const Customers = () => {
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
-              setPage(1);
+              setTableParams(prev => ({
+                ...prev,
+                pagination: {
+                  ...prev.pagination,
+                  current: 1,
+                },
+              }));
             }}
             style={{ width: 300 }}
           />
@@ -811,6 +1214,7 @@ const Customers = () => {
         onCancel={() => {
           setIsModalVisible(false);
           form.resetFields();
+          setActiveTab('1');
         }}
         footer={null}
         width={800}
@@ -818,6 +1222,8 @@ const Customers = () => {
         <Form
           form={form}
           layout="vertical"
+          scrollToFirstError
+          onFinishFailed={onFinishFailed}
           onValuesChange={(changedValues, allValues) => {
             if (changedValues.startDate || changedValues.endDate) {
               const s = allValues.startDate;
@@ -830,7 +1236,7 @@ const Customers = () => {
           }}
           onFinish={handleSubmit}
         >
-          <Tabs defaultActiveKey="1" items={tabItems} />
+          <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} />
           
           <div style={{ textAlign: 'right', marginTop: 16 }}>
             <Space>

@@ -268,6 +268,7 @@ const Contracts = () => {
         <Form
           form={form}
           layout="vertical"
+          scrollToFirstError
           onFinish={handleSubmit}
           className="contract-form"
         >

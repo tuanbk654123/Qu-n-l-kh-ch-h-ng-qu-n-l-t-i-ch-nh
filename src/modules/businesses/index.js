@@ -220,6 +220,7 @@ const Businesses = () => {
         <Form
           form={form}
           layout="vertical"
+          scrollToFirstError
           onFinish={handleSubmit}
         >
           <Form.Item

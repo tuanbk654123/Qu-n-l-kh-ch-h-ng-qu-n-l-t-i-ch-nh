@@ -86,6 +86,7 @@ const MyAccount = () => {
         <Form
           form={form}
           layout="vertical"
+          scrollToFirstError
           onFinish={handleSubmit}
           className="account-form"
         >

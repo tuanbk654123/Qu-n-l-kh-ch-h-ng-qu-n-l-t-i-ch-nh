@@ -164,7 +164,7 @@ const Costs = () => {
     filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }) => (
       <div style={{ padding: 8 }} onKeyDown={(e) => e.stopPropagation()}>
         <Input
-          placeholder={`Search ${dataIndex}`}
+          placeholder={`Tìm kiếm ${dataIndex}`}
           value={selectedKeys[0]}
           onChange={(e) => setSelectedKeys(e.target.value ? [e.target.value] : [])}
           onPressEnter={() => confirm()}
@@ -178,7 +178,7 @@ const Costs = () => {
             size="small"
             style={{ width: 90 }}
           >
-            Search
+            Tìm kiếm
           </Button>
           <Button
             onClick={() => {
@@ -188,7 +188,7 @@ const Costs = () => {
             size="small"
             style={{ width: 90 }}
           >
-            Reset
+            Đặt lại
           </Button>
         </Space>
       </div>

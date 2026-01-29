@@ -29,9 +29,9 @@ import './index.css';
 const { Option } = Select;
 
 const ROLE_OPTIONS = [
-  { value: 'marketing_sales', label: 'Marketing/Sales' },
-  { value: 'ip_executive', label: 'IP Executive' },
-  { value: 'ip_manager', label: 'IP Manager' },
+  { value: 'marketing_sales', label: 'Marketing/Kinh doanh' },
+  { value: 'ip_executive', label: 'Chuyên viên SHTT' },
+  { value: 'ip_manager', label: 'Trưởng phòng SHTT' },
   { value: 'director', label: 'Giám đốc' },
   { value: 'ceo', label: 'Tổng giám đốc' },
   { value: 'accountant', label: 'Kế toán' },
@@ -144,7 +144,7 @@ const Users = () => {
     filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }) => (
       <div style={{ padding: 8 }} onKeyDown={(e) => e.stopPropagation()}>
         <Input
-          placeholder={`Search ${dataIndex}`}
+          placeholder={`Tìm kiếm ${dataIndex}`}
           value={selectedKeys[0]}
           onChange={(e) => setSelectedKeys(e.target.value ? [e.target.value] : [])}
           onPressEnter={() => confirm()}
@@ -158,7 +158,7 @@ const Users = () => {
             size="small"
             style={{ width: 90 }}
           >
-            Search
+            Tìm kiếm
           </Button>
           <Button
             onClick={() => {
@@ -168,7 +168,7 @@ const Users = () => {
             size="small"
             style={{ width: 90 }}
           >
-            Reset
+            Đặt lại
           </Button>
         </Space>
       </div>
@@ -705,6 +705,7 @@ const Users = () => {
         <Form
           form={form}
           layout="vertical"
+          scrollToFirstError
           onFinish={handleSubmit}
         >
           <Row gutter={16}>

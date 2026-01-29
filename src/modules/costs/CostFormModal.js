@@ -41,9 +41,34 @@ const CostFormModal = ({
   const [form] = Form.useForm();
   const [rejectReasonModalVisible, setRejectReasonModalVisible] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
+  const [activeTab, setActiveTab] = useState('1');
+
+  const onFinishFailed = ({ errorFields }) => {
+    if (errorFields.length > 0) {
+      const firstErrorField = errorFields[0].name[0];
+      const fieldToTab = {
+        requester: '1', department: '1', requestDate: '1', transactionDate: '1', projectCode: '1', priority: '1',
+        transactionType: '1', transactionObject: '1', notificationRecipients: '1', taxCode: '1', content: '1', description: '1',
+        amountBeforeTax: '2', taxRate: '2', totalAmount: '2', paymentMethod: '2', bank: '2', accountNumber: '2',
+        voucherType: '3', voucherNumber: '3', voucherDate: '3', invoiceNumber: '3', invoiceSeries: '3', vatAmount: '3', attachment: '3',
+        paymentStatus: '4', rejectionReason: '4', approverManager: '4', approverDirector: '4', accountantReview: '4', adjustmentReason: '4', riskFlag: '4', note: '4',
+        vendorName: '5', vendorTaxCode: '5', costCategory: '5', costSubCategory: '5', costCenter: '5',
+        payDate: '6', dueDate: '6'
+      };
+      
+      const tabKey = fieldToTab[firstErrorField];
+      if (tabKey) {
+        setActiveTab(tabKey);
+        setTimeout(() => {
+          form.scrollToField(firstErrorField, { behavior: 'smooth', block: 'center' });
+        }, 100);
+      }
+    }
+  };
 
   useEffect(() => {
     if (visible) {
+      setActiveTab('1');
       if (editingCost) {
         const formattedRecord = {
           ...editingCost,
@@ -547,7 +572,7 @@ const CostFormModal = ({
               label="Thuế suất"
             >
               <Select disabled={!canEditField('taxRate')}>
-                <Option value="No VAT">No VAT</Option>
+                <Option value="No VAT">Không chịu thuế</Option>
                 <Option value="0%">VAT 0%</Option>
                 <Option value="5%">VAT 5%</Option>
                 <Option value="8%">VAT 8%</Option>
@@ -793,7 +818,7 @@ const CostFormModal = ({
           <Col span={8}>
             <Form.Item
               name="accountantReview"
-              label="Kế toán review"
+              label="Kế toán kiểm tra"
             >
               <Select disabled={!canEditField('accountantReview')}>
                 <Option value="Chưa duyệt">Chưa duyệt</Option>
@@ -887,7 +912,7 @@ const CostFormModal = ({
         <Col span={8}>
           <Form.Item
             name="costCenter"
-            label="Mã hạch toán (Cost center)"
+            label="Mã hạch toán (Trung tâm chi phí)"
           >
             <Input />
           </Form.Item>
@@ -997,10 +1022,12 @@ const CostFormModal = ({
         <Form
           form={form}
           layout="vertical"
+          scrollToFirstError
           onFinish={handleSubmit}
+          onFinishFailed={onFinishFailed}
           onValuesChange={calculateTotal}
         >
-          <Tabs defaultActiveKey="1">
+          <Tabs activeKey={activeTab} onChange={setActiveTab}>
             <Tabs.TabPane tab="Thông tin chung" key="1">
               {renderGeneralInfo()}
             </Tabs.TabPane>

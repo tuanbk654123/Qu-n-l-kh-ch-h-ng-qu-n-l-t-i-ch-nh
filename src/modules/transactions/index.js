@@ -317,6 +317,7 @@ const Transactions = () => {
         <Form
           form={form}
           layout="vertical"
+          scrollToFirstError
           onFinish={handleSubmit}
         >
           <Form.Item
