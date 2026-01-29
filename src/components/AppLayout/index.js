@@ -115,6 +115,11 @@ const AppLayout = ({ children }) => {
         icon: <DollarOutlined />,
         label: 'Quản lý chi phí',
       },
+      {
+        key: '/export-word',
+        icon: <FileTextOutlined />,
+        label: 'Xuất văn bản',
+      },
     ];
 
     if (canAccessUsersModule()) {

@@ -8,4 +8,5 @@ public interface IPermissionService
     Task SavePermissionMatrixAsync(
         Dictionary<string, Dictionary<string, Dictionary<string, string>>> permissions);
     Task<Dictionary<string, string>> GetRolePermissionsForModuleAsync(string moduleCode, string roleCode);
+    Task EnsureFieldAsync(string moduleCode, string code, string label, string groupCode, string groupLabel);
 }

@@ -117,6 +117,40 @@ public class PermissionService : IPermissionService
         return result;
     }
 
+    public async Task EnsureFieldAsync(string moduleCode, string code, string label, string groupCode, string groupLabel)
+    {
+        var exists = await _fields.Find(f => f.ModuleCode == moduleCode && f.Code == code).AnyAsync();
+        if (!exists)
+        {
+            var field = new FieldDef
+            {
+                Id = MongoDB.Bson.ObjectId.GenerateNewId().ToString(),
+                ModuleCode = moduleCode,
+                Code = code,
+                Label = label,
+                GroupCode = groupCode,
+                GroupLabel = groupLabel,
+                OrderIndex = 999 // Put at the end
+            };
+            await _fields.InsertOneAsync(field);
+
+            // Add default permissions for Admin/CEO
+            var roles = await _roles.Find(_ => true).ToListAsync();
+            foreach (var role in roles)
+            {
+                var level = (role.Code == "admin" || role.Code == "ceo") ? "A" : "R";
+                await _fieldPermissions.InsertOneAsync(new FieldPermission
+                {
+                    Id = MongoDB.Bson.ObjectId.GenerateNewId().ToString(),
+                    ModuleCode = moduleCode,
+                    FieldCode = code,
+                    RoleCode = role.Code,
+                    PermissionLevel = level
+                });
+            }
+        }
+    }
+
     private static Dictionary<string, Dictionary<string, string>> BuildPermissionMap(
         string moduleCode,
         List<FieldDef> fields,

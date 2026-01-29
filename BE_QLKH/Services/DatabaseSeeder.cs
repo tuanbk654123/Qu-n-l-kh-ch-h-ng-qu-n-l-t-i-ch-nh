@@ -801,6 +801,8 @@ public class DatabaseSeeder : IHostedService
                 new FieldDef { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "qlkh", Code = "updatedAt", Label = "Ngày cập nhật", GroupCode = "group_system", GroupLabel = "VII. Hệ thống – kiểm soát", OrderIndex = 3 },
                 new FieldDef { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "qlkh", Code = "documentLink", Label = "Link hồ sơ giấy tờ", GroupCode = "group_system", GroupLabel = "VII. Hệ thống – kiểm soát", OrderIndex = 4 },
 
+                new FieldDef { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "qlkh", Code = "export_doc", Label = "Xuất văn bản", GroupCode = "group_export", GroupLabel = "VIII. Xuất văn bản", OrderIndex = 1 },
+
                 new FieldDef { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "qlcp", Code = "requester", Label = "Người đề nghị", GroupCode = "group_request", GroupLabel = "I. Nhóm thông tin đề nghị – hành chính", OrderIndex = 1 },
                 new FieldDef { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "qlcp", Code = "department", Label = "Phòng ban", GroupCode = "group_request", GroupLabel = "I. Nhóm thông tin đề nghị – hành chính", OrderIndex = 2 },
                 new FieldDef { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "qlcp", Code = "priority", Label = "Ưu tiên", GroupCode = "group_request", GroupLabel = "I. Nhóm thông tin đề nghị – hành chính", OrderIndex = 3 },

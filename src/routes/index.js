@@ -10,6 +10,7 @@ import MyAccount from '../modules/account/MyAccount';
 import Users from '../modules/users';
 import PermissionModule from '../modules/permissions';
 import Contracts from '../modules/contracts';
+import ExportWord from '../modules/export-word';
 
 const AppRoutes = () => {
   return (
@@ -36,6 +37,7 @@ const AppRoutes = () => {
                   }
                 />
                 <Route path="/contracts" element={<Contracts />} />
+                <Route path="/export-word" element={<ExportWord />} />
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
               </Routes>
             </AppLayout>

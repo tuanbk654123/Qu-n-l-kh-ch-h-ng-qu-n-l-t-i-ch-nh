@@ -14,6 +14,7 @@ import {
   Row,
   Col,
   DatePicker,
+  Upload,
 } from 'antd';
 import {
   EditOutlined,
@@ -246,6 +247,9 @@ const Customers = () => {
         reminderDate: values.reminderDate ? values.reminderDate.format('YYYY-MM-DD') : null,
         updatedAt: values.updatedAt ? values.updatedAt.format('YYYY-MM-DD') : null,
       };
+
+      // Remove export replacements from payload
+      delete formattedValues.replacements;
 
       if (editingCustomer) {
         await axios.put(`/api/customers/${editingCustomer.id}`, formattedValues);
