@@ -189,19 +189,19 @@ const ExportWord = () => {
                     </div>
                     
                     {/* Spacer to align with "Tên file" in data columns */}
-                    <Form.Item
-                        label={<span style={{ fontWeight: 'bold', opacity: 0 }}>Tên file xuất ra</span>}
-                        style={{ 
-                            marginBottom: '16px', 
-                            padding: '8px', 
-                            background: 'transparent', 
-                            borderRadius: '4px',
-                            border: '1px dashed transparent',
-                            pointerEvents: 'none'
-                        }}
-                    >
-                        <Input style={{ visibility: 'hidden' }} />
-                    </Form.Item>
+                    <div style={{ 
+                        marginBottom: '16px', 
+                        padding: '4px', 
+                        background: '#e6f7ff', 
+                        borderRadius: '4px',
+                        border: '1px dashed #1890ff',
+                        height: '56px', 
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                    }}>
+                        <span style={{ fontWeight: 'bold', color: '#1890ff' }}>Tên file xuất ra</span>
+                    </div>
 
                     <Form.List name="fields">
                         {(fields, { add, remove }) => (
@@ -239,15 +239,18 @@ const ExportWord = () => {
                                     <Form.Item
                                         {...restField}
                                         name={[name, 'name']}
-                                        label={<span style={{ fontWeight: 'bold', color: '#1890ff' }}>Tên file xuất ra</span>}
                                         initialValue={`File_${colIndex + 1}`}
                                         rules={[{ required: true, message: 'Nhập tên file' }]}
                                         style={{ 
                                             marginBottom: '16px', 
-                                            padding: '8px', 
+                                            padding: '4px', 
                                             background: '#e6f7ff', 
                                             borderRadius: '4px',
-                                            border: '1px dashed #1890ff'
+                                            border: '1px dashed #1890ff',
+                                            height: '56px',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            justifyContent: 'center'
                                         }}
                                     >
                                         <Input 
