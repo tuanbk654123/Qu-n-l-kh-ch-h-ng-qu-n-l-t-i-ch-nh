@@ -30,7 +30,8 @@ public class PermissionsController : ControllerBase
                 qlkh = matrix.QlkhPermissions,
                 qlcp = matrix.QlcpPermissions,
                 users = matrix.UserPermissions,
-                dashboard = matrix.DashboardPermissions
+                dashboard = matrix.DashboardPermissions,
+                export = matrix.ExportPermissions
             },
             qlkhFields = matrix.QlkhFields.Select(g => new
             {
@@ -51,6 +52,12 @@ public class PermissionsController : ControllerBase
                 children = g.Children.Select(c => new { key = c.Key, label = c.Label })
             }),
             dashboardFields = matrix.DashboardFields.Select(g => new
+            {
+                key = g.Key,
+                label = g.Label,
+                children = g.Children.Select(c => new { key = c.Key, label = c.Label })
+            }),
+            exportFields = matrix.ExportFields.Select(g => new
             {
                 key = g.Key,
                 label = g.Label,

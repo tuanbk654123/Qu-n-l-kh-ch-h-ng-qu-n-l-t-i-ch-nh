@@ -739,7 +739,8 @@ public class DatabaseSeeder : IHostedService
                 new ModuleDef { Code = "qlkh", Name = "Quản lý khách hàng", IsActive = true },
                 new ModuleDef { Code = "qlcp", Name = "Quản lý chi phí", IsActive = true },
                 new ModuleDef { Code = "dashboard", Name = "Dashboard", IsActive = true },
-                new ModuleDef { Code = "users", Name = "Quản lý nhân viên", IsActive = true }
+                new ModuleDef { Code = "users", Name = "Quản lý nhân viên", IsActive = true },
+                new ModuleDef { Code = "export", Name = "Xuất văn bản", IsActive = true }
             };
 
             await modulesCollection.InsertManyAsync(defaultModules, cancellationToken: cancellationToken);
@@ -801,7 +802,7 @@ public class DatabaseSeeder : IHostedService
                 new FieldDef { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "qlkh", Code = "updatedAt", Label = "Ngày cập nhật", GroupCode = "group_system", GroupLabel = "VII. Hệ thống – kiểm soát", OrderIndex = 3 },
                 new FieldDef { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "qlkh", Code = "documentLink", Label = "Link hồ sơ giấy tờ", GroupCode = "group_system", GroupLabel = "VII. Hệ thống – kiểm soát", OrderIndex = 4 },
 
-                new FieldDef { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "qlkh", Code = "export_doc", Label = "Xuất văn bản", GroupCode = "group_export", GroupLabel = "VIII. Xuất văn bản", OrderIndex = 1 },
+                new FieldDef { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "export", Code = "export_doc", Label = "Xuất văn bản", GroupCode = "group_export", GroupLabel = "VIII. Xuất văn bản", OrderIndex = 1 },
 
                 new FieldDef { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "qlcp", Code = "requester", Label = "Người đề nghị", GroupCode = "group_request", GroupLabel = "I. Nhóm thông tin đề nghị – hành chính", OrderIndex = 1 },
                 new FieldDef { Id = ObjectId.GenerateNewId().ToString(), ModuleCode = "qlcp", Code = "department", Label = "Phòng ban", GroupCode = "group_request", GroupLabel = "I. Nhóm thông tin đề nghị – hành chính", OrderIndex = 2 },
@@ -996,6 +997,7 @@ public class DatabaseSeeder : IHostedService
             AddQlkhFieldPermissions("updatedBy", "R", "R", "R", "R", "R", "R", "W");
             AddQlkhFieldPermissions("updatedAt", "R", "R", "R", "R", "R", "R", "W");
             AddQlkhFieldPermissions("documentLink", "R", "W", "A", "R", "W", "W", "W");
+            AddQlkhFieldPermissions("export_doc", "W", "W", "W", "W", "W", "W", "W");
 
             AddQlcpFieldPermissions("requester", "CREATE", "READ", "READ", "READ", "READ");
             AddQlcpFieldPermissions("department", "CREATE", "READ", "READ", "READ", "READ");
@@ -1100,6 +1102,50 @@ public class DatabaseSeeder : IHostedService
             new UpdateOptions { IsUpsert = true },
             cancellationToken
         );
+
+        // 5. Ensure export_doc field exists (Force update/upsert)
+        // Always remove old qlkh field if it exists
+        await fieldsCollection.DeleteOneAsync(f => f.ModuleCode == "qlkh" && f.Code == "export_doc", cancellationToken);
+        
+        // Upsert the export_doc field to ensure it exists and has correct properties
+        var exportFieldDef = new FieldDef 
+        { 
+            // We need to be careful with ID if we are upserting. 
+            // If we find one, use its ID. If not, generate new.
+            // But since we want to enforce the definition, let's find it first.
+            ModuleCode = "export", 
+            Code = "export_doc", 
+            Label = "Xuất văn bản", 
+            GroupCode = "group_export", 
+            GroupLabel = "VIII. Xuất văn bản", 
+            OrderIndex = 1 
+        };
+
+        var existingExportField = await fieldsCollection.Find(f => f.ModuleCode == "export" && f.Code == "export_doc").FirstOrDefaultAsync(cancellationToken);
+        if (existingExportField != null)
+        {
+            exportFieldDef.Id = existingExportField.Id;
+            await fieldsCollection.ReplaceOneAsync(f => f.Id == existingExportField.Id, exportFieldDef, new ReplaceOptions { IsUpsert = true }, cancellationToken);
+        }
+        else
+        {
+            exportFieldDef.Id = ObjectId.GenerateNewId().ToString();
+            await fieldsCollection.InsertOneAsync(exportFieldDef, cancellationToken: cancellationToken);
+        }
+
+        // 6. Ensure export_doc permissions exist (A for all roles as per request)
+        var rolesList = new[] { "marketing_sales", "ip_executive", "ip_manager", "accountant", "director", "ceo", "admin" };
+        foreach (var role in rolesList)
+        {
+            var permLevel = "A";
+            var permUpdate = Builders<FieldPermission>.Update.Set(p => p.PermissionLevel, permLevel);
+            await fpCollection.UpdateOneAsync(
+                p => p.ModuleCode == "export" && p.FieldCode == "export_doc" && p.RoleCode == role,
+                permUpdate,
+                new UpdateOptions { IsUpsert = true },
+                cancellationToken
+            );
+        }
     }
 
     private static string HashPassword(string password)

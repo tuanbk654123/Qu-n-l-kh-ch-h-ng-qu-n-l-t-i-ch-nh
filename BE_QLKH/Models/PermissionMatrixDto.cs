@@ -7,10 +7,12 @@ public class PermissionMatrixDto
     public Dictionary<string, Dictionary<string, string>> QlcpPermissions { get; set; } = new();
     public Dictionary<string, Dictionary<string, string>> UserPermissions { get; set; } = new();
     public Dictionary<string, Dictionary<string, string>> DashboardPermissions { get; set; } = new();
+    public Dictionary<string, Dictionary<string, string>> ExportPermissions { get; set; } = new();
     public List<PermissionFieldGroupDto> QlkhFields { get; set; } = new();
     public List<PermissionFieldGroupDto> QlcpFields { get; set; } = new();
     public List<PermissionFieldGroupDto> UserFields { get; set; } = new();
     public List<PermissionFieldGroupDto> DashboardFields { get; set; } = new();
+    public List<PermissionFieldGroupDto> ExportFields { get; set; } = new();
 }
 
 public class RoleDto

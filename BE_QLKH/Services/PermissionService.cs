@@ -34,16 +34,19 @@ public class PermissionService : IPermissionService
         var qlcpFields = fields.Where(f => f.ModuleCode == "qlcp").ToList();
         var userFields = fields.Where(f => f.ModuleCode == "users").ToList();
         var dashboardFields = fields.Where(f => f.ModuleCode == "dashboard").ToList();
+        var exportFields = fields.Where(f => f.ModuleCode == "export").ToList();
 
         var qlkhGroups = BuildFieldGroups(qlkhFields);
         var qlcpGroups = BuildFieldGroups(qlcpFields);
         var userGroups = BuildFieldGroups(userFields);
         var dashboardGroups = BuildFieldGroups(dashboardFields);
+        var exportGroups = BuildFieldGroups(exportFields);
 
         var qlkhPerm = BuildPermissionMap("qlkh", qlkhFields, roles, fieldPermissions);
         var qlcpPerm = BuildPermissionMap("qlcp", qlcpFields, roles, fieldPermissions);
         var userPerm = BuildPermissionMap("users", userFields, roles, fieldPermissions);
         var dashboardPerm = BuildPermissionMap("dashboard", dashboardFields, roles, fieldPermissions);
+        var exportPerm = BuildPermissionMap("export", exportFields, roles, fieldPermissions);
 
         return new PermissionMatrixDto
         {
@@ -52,10 +55,12 @@ public class PermissionService : IPermissionService
             QlcpFields = qlcpGroups,
             UserFields = userGroups,
             DashboardFields = dashboardGroups,
+            ExportFields = exportGroups,
             QlkhPermissions = qlkhPerm,
             QlcpPermissions = qlcpPerm,
             UserPermissions = userPerm,
-            DashboardPermissions = dashboardPerm
+            DashboardPermissions = dashboardPerm,
+            ExportPermissions = exportPerm
         };
     }
 

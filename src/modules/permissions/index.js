@@ -9,11 +9,12 @@ const { Title, Text } = Typography;
 const PermissionModule = () => {
   const [loading, setLoading] = useState(false);
   const [roles, setRoles] = useState([]);
-  const [permissions, setPermissions] = useState({ qlkh: {}, qlcp: {}, users: {}, dashboard: {} });
+  const [permissions, setPermissions] = useState({ qlkh: {}, qlcp: {}, users: {}, dashboard: {}, export: {} });
   const [qlkhFields, setQlkhFields] = useState([]);
   const [qlcpFields, setQlcpFields] = useState([]);
   const [userFields, setUserFields] = useState([]);
   const [dashboardFields, setDashboardFields] = useState([]);
+  const [exportFields, setExportFields] = useState([]);
 
   useEffect(() => {
     fetchPermissions();
@@ -30,11 +31,13 @@ const PermissionModule = () => {
         qlcp: data.permissions?.qlcp || {},
         users: data.permissions?.users || {},
         dashboard: data.permissions?.dashboard || {},
+        export: data.permissions?.export || {},
       });
       setQlkhFields(data.qlkhFields || []);
       setQlcpFields(data.qlcpFields || []);
       setUserFields(data.userFields || []);
       setDashboardFields(data.dashboardFields || []);
+      setExportFields(data.exportFields || []);
     } catch (error) {
       console.error('Failed to fetch permissions:', error);
       message.error('Không thể tải dữ liệu phân quyền');
@@ -154,12 +157,19 @@ const PermissionModule = () => {
         width: 140,
         render: (_, record) => {
           const currentPerm = permissions[moduleName]?.[record.key]?.[role.key] || 'N';
-          const items = [
+          
+          let items = [
             { key: 'A', label: <div style={{ ...getPermissionStyle('A'), padding: 6, borderRadius: 6, border: '1px solid #49BD65', textAlign: 'center' }}>Toàn quyền</div> },
             { key: 'W', label: <div style={{ ...getPermissionStyle('W'), padding: 6, borderRadius: 6, border: '1px solid #FFA940', textAlign: 'center' }}>Chỉnh sửa</div> },
             { key: 'R', label: <div style={{ ...getPermissionStyle('R'), padding: 6, borderRadius: 6, border: '1px solid #69C0FF', textAlign: 'center' }}>Chỉ xem</div> },
             { key: 'N', label: <div style={{ ...getPermissionStyle('N'), padding: 6, borderRadius: 6, border: '1px solid #d9d9d9', textAlign: 'center' }}>Ẩn</div> },
           ];
+
+          // For 'export' module, only allow 'A' (Toàn quyền) and 'N' (Ẩn)
+          if (moduleName === 'export') {
+            items = items.filter(item => ['A', 'N'].includes(item.key));
+          }
+
           return (
             <Dropdown
               trigger={['click']}
@@ -227,22 +237,27 @@ const PermissionModule = () => {
           {
             key: 'qlkh',
             label: 'Quản lý Khách hàng',
-            children: renderTable('qlkh', qlkhFields)
+            children: renderTable('qlkh', qlkhFields),
           },
           {
             key: 'qlcp',
             label: 'Quản lý Chi phí',
-            children: renderTable('qlcp', qlcpFields)
+            children: renderTable('qlcp', qlcpFields),
           },
           {
             key: 'users',
             label: 'Quản lý Nhân viên',
-            children: renderTable('users', userFields)
+            children: renderTable('users', userFields),
           },
           {
             key: 'dashboard',
             label: 'Dashboard',
-            children: renderTable('dashboard', dashboardFields)
+            children: renderTable('dashboard', dashboardFields),
+          },
+          {
+            key: 'export',
+            label: 'Xuất văn bản',
+            children: renderTable('export', exportFields),
           }
         ]}
       />

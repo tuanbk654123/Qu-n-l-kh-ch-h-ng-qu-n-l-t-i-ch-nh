@@ -257,6 +257,18 @@ const Costs = () => {
       ...getColumnSearchProps('id'),
     },
     {
+      title: 'Trạng thái',
+      dataIndex: 'paymentStatus',
+      key: 'paymentStatus',
+      width: 150,
+      sorter: true,
+      ...getColumnSearchProps('paymentStatus'),
+      render: (status) => (
+        <Tag color={getStatusColor(status)}>{status}</Tag>
+      ),
+      hidden: !canReadField('paymentStatus'),
+    },
+    {
       title: 'Nội dung',
       dataIndex: 'content',
       key: 'content',
@@ -427,18 +439,7 @@ const Costs = () => {
       ...getColumnSearchProps('transactionDate'),
       hidden: !canReadField('transactionDate'),
     },
-    {
-      title: 'Trạng thái',
-      dataIndex: 'paymentStatus',
-      key: 'paymentStatus',
-      width: 150,
-      sorter: true,
-      ...getColumnSearchProps('paymentStatus'),
-      render: (status) => (
-        <Tag color={getStatusColor(status)}>{status}</Tag>
-      ),
-      hidden: !canReadField('paymentStatus'),
-    },
+
     {
       title: 'Lý do từ chối',
       dataIndex: 'rejectionReason',

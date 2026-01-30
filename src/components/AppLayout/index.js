@@ -25,7 +25,7 @@ const AppLayout = ({ children }) => {
   const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout, canAccessUsersModule, canAccessPermissions } = useAuth();
+  const { user, logout, canAccessUsersModule, canAccessPermissions, getPermissionLevel, isAdmin } = useAuth();
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotification();
   const [visible, setVisible] = useState(false);
 
@@ -115,12 +115,16 @@ const AppLayout = ({ children }) => {
         icon: <DollarOutlined />,
         label: 'Quản lý chi phí',
       },
-      {
+    ];
+
+    const exportDocPerm = getPermissionLevel('export', 'export_doc');
+    if (exportDocPerm && exportDocPerm !== 'N') {
+      items.push({
         key: '/export-word',
         icon: <FileTextOutlined />,
         label: 'Xuất văn bản',
-      },
-    ];
+      });
+    }
 
     if (canAccessUsersModule()) {
       items.push({
