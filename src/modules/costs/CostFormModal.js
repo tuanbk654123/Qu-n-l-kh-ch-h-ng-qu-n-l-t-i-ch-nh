@@ -79,7 +79,8 @@ const CostFormModal = ({
           dueDate: editingCost.dueDate ? dayjs(editingCost.dueDate) : null,
           attachments: Array.isArray(editingCost.attachments) 
             ? editingCost.attachments 
-            : (editingCost.attachment ? [{ path: editingCost.attachment, name: 'Đính kèm' }] : [])
+            : (editingCost.attachment ? [{ path: editingCost.attachment, name: 'Đính kèm' }] : []),
+          notificationRecipients: [] // Clear notification recipients to allow re-selection
         };
         form.setFieldsValue(formattedRecord);
       } else {
