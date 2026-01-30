@@ -348,6 +348,7 @@ const Dashboard = () => {
             }
             className="chart-card"
           >
+            {customerStats && customerStats.length > 0 ? (
              <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={customerStats} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 1" />
@@ -355,10 +356,15 @@ const Dashboard = () => {
                   <YAxis />
                   <Tooltip labelStyle={{ color: 'black' }} />
                   <Legend />
-                  <Bar dataKey="Total" name="Tổng KH mới" fill="#1890ff" />
-                  <Bar dataKey="Consulted" name="Đã tư vấn" fill="#52c41a" />
+                  <Bar dataKey="total" name="Tổng KH mới" fill="#1890ff" />
+                  <Bar dataKey="consulted" name="Đã tư vấn" fill="#52c41a" />
                 </BarChart>
              </ResponsiveContainer>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '50px', color: '#999' }}>
+                Không có dữ liệu cho năm {custYear}
+              </div>
+            )}
           </Card>
         </Col>
 
