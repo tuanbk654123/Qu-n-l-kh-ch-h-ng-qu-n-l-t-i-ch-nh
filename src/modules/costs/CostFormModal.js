@@ -108,7 +108,19 @@ const CostFormModal = ({
   };
 
   const canEditField = (field) => {
+    // Nếu là kế toán và đang xem từ thông báo (chờ duyệt), cho phép sửa thông tin chứng từ
     if (isNotificationView) {
+       const isAccountant = user?.role === 'admin' || user?.role === 'ke_toan' || user?.role === 'accountant';
+       const isWaitingAccountant = editingCost?.paymentStatus === 'Giám đốc duyệt';
+
+       if (isAccountant && isWaitingAccountant) {
+          const accountantAllowed = [
+              'voucherType', 'voucherNumber', 'voucherDate', 'invoiceNumber', 'invoiceSeries', 'vatAmount', 'attachment', 'attachments',
+              'payDate', 'dueDate', 'bank', 'accountNumber', 'paymentMethod'
+          ];
+          if (accountantAllowed.includes(field)) return true;
+       }
+
       const allowed = ['notificationRecipients', 'attachments', 'attachment', 'adjustmentReason', 'note', 'payDate', 'dueDate'];
       if (allowed.includes(field)) return true;
       return false;
@@ -158,27 +170,58 @@ const CostFormModal = ({
   };
 
   const handleApproveAction = () => {
-    form.validateFields(['notificationRecipients']).then(values => {
-      Modal.confirm({
-        title: 'Xác nhận duyệt',
-        content: 'Bạn có chắc chắn muốn duyệt phiếu chi này?',
-        okText: 'Duyệt',
-        cancelText: 'Hủy',
-        onOk: async () => {
-          try {
-              const recipients = form.getFieldValue('notificationRecipients') || [];
-              const res = await axios.post(`/api/costs/${editingCost.id}/approve`, {
-                  notificationRecipients: recipients
-              });
-              message.success(res.data.message || 'Duyệt thành công');
-              onSuccess();
-          } catch (error) {
-              handleApiError(error, 'Lỗi khi duyệt phiếu');
-          }
-        },
-      });
+    // Validate trước khi thực hiện
+    form.validateFields().then(values => {
+        Modal.confirm({
+            title: 'Xác nhận duyệt',
+            content: 'Bạn có chắc chắn muốn duyệt phiếu chi này?',
+            okText: 'Duyệt',
+            cancelText: 'Hủy',
+            onOk: async () => {
+            try {
+                // 1. Lưu thông tin phiếu (PUT) để cập nhật các chỉnh sửa (nếu có)
+                // Format lại date
+                const formattedValues = {
+                    ...values,
+                    requestDate: values.requestDate ? values.requestDate.format('YYYY-MM-DD') : null,
+                    transactionDate: values.transactionDate ? values.transactionDate.format('YYYY-MM-DD') : null,
+                    voucherDate: values.voucherDate ? values.voucherDate.format('YYYY-MM-DD') : null,
+                    payDate: values.payDate ? values.payDate.format('YYYY-MM-DD') : null,
+                    dueDate: values.dueDate ? values.dueDate.format('YYYY-MM-DD') : null,
+                };
+                
+                // Giữ nguyên status hiện tại khi update data (việc đổi status sẽ do API approve làm)
+                // Tuy nhiên, nếu user đã thay đổi status ở form thì sao? 
+                // Ở view notification, status bị disable hoặc hiển thị tag, nên values.paymentStatus có thể là undefined hoặc giá trị cũ
+                // Tốt nhất ta update data nhưng loại bỏ field paymentStatus để tránh conflict với Approve logic
+                const updateData = { ...formattedValues };
+                delete updateData.paymentStatus; 
+                
+                // Update DB
+                await axios.put(`/api/costs/${editingCost.id}`, updateData);
+
+                // 2. Gọi API Approve để chuyển trạng thái và gửi thông báo
+                const recipients = form.getFieldValue('notificationRecipients') || [];
+                const res = await axios.post(`/api/costs/${editingCost.id}/approve`, {
+                    notificationRecipients: recipients
+                });
+
+                message.success(res.data.message || 'Duyệt và lưu thành công');
+                onSuccess();
+            } catch (error) {
+                handleApiError(error, 'Lỗi khi duyệt phiếu');
+            }
+            },
+        });
     }).catch(errorInfo => {
-        message.error('Vui lòng chọn người nhận thông báo trước khi duyệt');
+        // Nếu lỗi ở notificationRecipients thì báo riêng, hoặc báo chung
+        if (errorInfo.errorFields.find(f => f.name.includes('notificationRecipients'))) {
+             message.error('Vui lòng chọn người nhận thông báo');
+             form.scrollToField('notificationRecipients');
+        } else {
+             message.error('Vui lòng kiểm tra lại các trường thông tin');
+             onFinishFailed(errorInfo); // Sẽ tự switch tab
+        }
     });
   };
 
