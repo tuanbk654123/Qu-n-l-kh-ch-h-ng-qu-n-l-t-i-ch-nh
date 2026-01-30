@@ -517,6 +517,106 @@ mock.onDelete(/\/api\/costs\/\d+/).reply((config) => {
   return [404, { message: 'Cost not found' }];
 });
 
+mock.onPost(/\/api\/costs\/\d+\/approve/).reply((config) => {
+  const currentUser = getCurrentUser();
+  if (!currentUser) {
+    return [401, { message: 'Chưa đăng nhập' }];
+  }
+
+  const parts = config.url.split('/');
+  const id = parseInt(parts[parts.length - 2]); // /api/costs/123/approve
+  const { notificationRecipients } = JSON.parse(config.data);
+  
+  const costIndex = costsData.findIndex((c) => c.id === id);
+  if (costIndex === -1) {
+    return [404, { message: 'Không tìm thấy phiếu chi' }];
+  }
+  
+  const cost = costsData[costIndex];
+  let newStatus = cost.paymentStatus;
+  
+  // Logic duyệt
+  const isManager = ['ip_manager', 'quan_ly', 'manager'].includes(currentUser.role);
+  const isDirector = ['admin', 'director', 'giam_doc'].includes(currentUser.role);
+  
+  let notifMessage = '';
+  let notifTitle = '';
+  let targetUserIds = [];
+
+  if (isManager && cost.paymentStatus === 'Đợi duyệt') {
+    newStatus = 'Quản lý duyệt';
+    notifTitle = 'Phiếu chi cần duyệt (GĐ)';
+    notifMessage = `Manager ${currentUser.fullName} đã duyệt phiếu #${cost.id}. Vui lòng xem xét.`;
+    // Gửi cho Director (Admin/CEO)
+    // Find director users
+    const directors = usersData.filter(u => ['admin', 'director', 'giam_doc'].includes(u.role));
+    targetUserIds = directors.map(u => u.id);
+
+  } else if (isDirector) {
+    // Director approves
+    newStatus = 'Giám đốc duyệt';
+    notifTitle = 'Phiếu chi đã được duyệt';
+    notifMessage = `Giám đốc ${currentUser.fullName} đã duyệt phiếu #${cost.id}. Vui lòng thực hiện chi tiền.`;
+    // Gửi cho Accountant
+    const accountants = usersData.filter(u => ['accountant', 'ke_toan'].includes(u.role) || u.department === 'Kế toán');
+    targetUserIds = accountants.map(u => u.id);
+  } else {
+      // Fallback if permission logic on server allows but logic here is fuzzy
+      // Or maybe it's already approved?
+      if (cost.paymentStatus === 'Quản lý duyệt' && isManager) {
+          // Manager approving again? Ignore or update?
+      }
+  }
+  
+  // Update cost
+  costsData[costIndex] = { 
+    ...cost, 
+    paymentStatus: newStatus,
+    updatedAt: new Date().toISOString().split('T')[0],
+    updatedBy: currentUser.id
+  };
+
+  // Create notifications
+  if (targetUserIds.length > 0) {
+      const now = new Date().toISOString();
+      targetUserIds.forEach(uid => {
+        const notifId = Math.max(...notificationsData.map(n => n.id), 0) + 1;
+        notificationsData.unshift({
+            id: notifId,
+            userId: uid,
+            title: notifTitle,
+            message: notifMessage,
+            type: 'CostApproval',
+            relatedId: cost.id.toString(),
+            isRead: false,
+            createdAt: now
+        });
+      });
+  }
+
+  // Handle manual recipients if any (optional, but good for demo)
+  if (notificationRecipients && notificationRecipients.length > 0) {
+      const now = new Date().toISOString();
+      notificationRecipients.forEach(uid => {
+          if (!targetUserIds.includes(uid)) { // Avoid duplicate
+            const notifId = Math.max(...notificationsData.map(n => n.id), 0) + 1;
+             notificationsData.unshift({
+                id: notifId,
+                userId: uid,
+                title: 'Thông báo duyệt phiếu chi',
+                message: `${currentUser.fullName} đã duyệt phiếu #${cost.id}`,
+                type: 'CostApproval',
+                relatedId: cost.id.toString(),
+                isRead: false,
+                createdAt: now
+            });
+          }
+      });
+  }
+
+  return [200, { message: 'Duyệt phiếu thành công', status: newStatus }];
+});
+
 // API Thông báo
 mock.onGet('/api/notifications').reply(() => {
   const currentUser = getCurrentUser();

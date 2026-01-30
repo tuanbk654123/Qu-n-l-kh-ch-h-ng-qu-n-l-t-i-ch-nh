@@ -78,8 +78,6 @@ const Costs = () => {
 
   const mapFieldToPermissionKey = (field) => {
     const mapping = {
-      approverManager: 'managerApproval',
-      approverDirector: 'directorApproval',
       adjustmentReason: 'adjustReason',
     };
     return mapping[field] || field;
@@ -90,13 +88,6 @@ const Costs = () => {
     const level = fieldPermissions[key];
     return level && level !== 'N';
   };
-
-  // Helper for debug logs
-  useEffect(() => {
-    console.log('Current User:', user);
-    console.log('User Role:', user?.role);
-    console.log('Field Permissions:', fieldPermissions);
-  }, [user, fieldPermissions]);
 
   const fetchCosts = useCallback(async () => {
     setLoading(true);
@@ -450,33 +441,6 @@ const Costs = () => {
       hidden: !canReadField('rejectionReason'),
     },
     {
-      title: 'QL duyệt',
-      dataIndex: 'approverManager',
-      key: 'approverManager',
-      width: 150,
-      sorter: true,
-      ...getColumnSearchProps('approverManager'),
-      hidden: !canReadField('approverManager'),
-    },
-    {
-      title: 'GĐ duyệt',
-      dataIndex: 'approverDirector',
-      key: 'approverDirector',
-      width: 150,
-      sorter: true,
-      ...getColumnSearchProps('approverDirector'),
-      hidden: !canReadField('approverDirector'),
-    },
-    {
-      title: 'KT soát xét',
-      dataIndex: 'accountantReview',
-      key: 'accountantReview',
-      width: 150,
-      sorter: true,
-      ...getColumnSearchProps('accountantReview'),
-      hidden: !canReadField('accountantReview'),
-    },
-    {
       title: 'Ghi chú',
       dataIndex: 'note',
       key: 'note',
@@ -548,8 +512,9 @@ const Costs = () => {
         visible={isModalVisible}
         onCancel={() => setIsModalVisible(false)}
         onSuccess={handleSuccess}
-        initialData={editingCost}
+        editingCost={editingCost}
         fieldPermissions={fieldPermissions}
+        user={user}
         users={users} // Pass users to modal
         isNotificationView={isNotificationView}
       />

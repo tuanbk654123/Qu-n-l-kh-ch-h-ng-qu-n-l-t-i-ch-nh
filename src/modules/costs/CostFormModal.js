@@ -51,7 +51,7 @@ const CostFormModal = ({
         transactionType: '1', transactionObject: '1', notificationRecipients: '1', taxCode: '1', content: '1', description: '1',
         amountBeforeTax: '2', taxRate: '2', totalAmount: '2', paymentMethod: '2', bank: '2', accountNumber: '2',
         voucherType: '3', voucherNumber: '3', voucherDate: '3', invoiceNumber: '3', invoiceSeries: '3', vatAmount: '3', attachment: '3',
-        paymentStatus: '4', rejectionReason: '4', approverManager: '4', approverDirector: '4', accountantReview: '4', adjustmentReason: '4', riskFlag: '4', note: '4',
+        paymentStatus: '4', rejectionReason: '4', adjustmentReason: '4', riskFlag: '4', note: '4',
         vendorName: '5', vendorTaxCode: '5', costCategory: '5', costSubCategory: '5', costCenter: '5',
         payDate: '6', dueDate: '6'
       };
@@ -96,8 +96,6 @@ const CostFormModal = ({
 
   const mapFieldToPermissionKey = (field) => {
     const mapping = {
-      approverManager: 'managerApproval',
-      approverDirector: 'directorApproval',
       adjustmentReason: 'adjustReason',
     };
     return mapping[field] || field;
@@ -110,6 +108,12 @@ const CostFormModal = ({
   };
 
   const canEditField = (field) => {
+    if (isNotificationView) {
+      const allowed = ['notificationRecipients', 'attachments', 'attachment', 'adjustmentReason', 'note', 'payDate', 'dueDate'];
+      if (allowed.includes(field)) return true;
+      return false;
+    }
+
     const key = mapFieldToPermissionKey(field);
     const level = fieldPermissions[key];
     return level === 'W' || level === 'A';
@@ -195,11 +199,15 @@ const CostFormModal = ({
     }
 
     let updates = { rejectionReason: rejectReason, paymentStatus: 'Huỷ' };
+    
+    // Removed legacy fields update
+    /*
     if (canEditField('approverManager')) {
       updates.approverManager = 'Từ chối';
     } else if (canEditField('approverDirector')) {
       updates.approverDirector = 'Từ chối';
     }
+    */
 
     form.setFieldsValue(updates);
     setRejectReasonModalVisible(false);
@@ -416,7 +424,7 @@ const CostFormModal = ({
             name="transactionDate"
             label="Ngày phát sinh giao dịch"
           >
-            <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
+            <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" disabled={isNotificationView} />
           </Form.Item>
         </Col>
       </Row>
@@ -677,7 +685,7 @@ const CostFormModal = ({
             name="invoiceNumber"
             label="Số hóa đơn"
           >
-            <Input />
+            <Input disabled={isNotificationView} />
           </Form.Item>
         </Col>
         <Col span={8}>
@@ -685,7 +693,7 @@ const CostFormModal = ({
             name="invoiceSeries"
             label="Ký hiệu hóa đơn"
           >
-            <Input />
+            <Input disabled={isNotificationView} />
           </Form.Item>
         </Col>
         <Col span={8}>
@@ -693,7 +701,7 @@ const CostFormModal = ({
             name="vatAmount"
             label="Tiền VAT"
           >
-            <Input type="number" suffix="VND" />
+            <Input type="number" suffix="VND" disabled={isNotificationView} />
           </Form.Item>
         </Col>
       </Row>
@@ -758,17 +766,28 @@ const CostFormModal = ({
               </Form.Item>
             ) : (
               <Form.Item
-                name="paymentStatus"
                 label="Trạng thái thanh toán"
+                shouldUpdate
               >
-                <Select disabled={!canEditField('paymentStatus')}>
-                  <Option value="Đợi duyệt">Đợi duyệt</Option>
-                  <Option value="Quản lý duyệt">Quản lý duyệt</Option>
-                  <Option value="Giám đốc duyệt">Giám đốc duyệt</Option>
-                  <Option value="Đã thanh toán">Đã thanh toán</Option>
-                  <Option value="Thanh toán 1 phần">Thanh toán 1 phần</Option>
-                  <Option value="Huỷ">Huỷ</Option>
-                </Select>
+                 {() => {
+                    // Nếu là notification view, hiển thị Tag
+                    if (isNotificationView) {
+                         return getStatusTag(editingCost.paymentStatus);
+                    }
+                    // Ngược lại hiển thị Select để edit (nếu có quyền)
+                    return (
+                        <Form.Item name="paymentStatus" noStyle>
+                            <Select disabled={!canEditField('paymentStatus')}>
+                              <Option value="Đợi duyệt">Đợi duyệt</Option>
+                              <Option value="Quản lý duyệt">Quản lý duyệt</Option>
+                              <Option value="Giám đốc duyệt">Giám đốc duyệt</Option>
+                              <Option value="Đã thanh toán">Đã thanh toán</Option>
+                              <Option value="Thanh toán 1 phần">Thanh toán 1 phần</Option>
+                              <Option value="Huỷ">Huỷ</Option>
+                            </Select>
+                        </Form.Item>
+                    );
+                 }}
               </Form.Item>
             )}
           </Col>
@@ -784,53 +803,7 @@ const CostFormModal = ({
           </Col>
         )}
       </Row>
-      <Row gutter={16}>
-        {canReadField('approverManager') && (
-          <Col span={8}>
-            <Form.Item
-              name="approverManager"
-              label="Quản lý duyệt"
-            >
-              <Select disabled={!canEditField('approverManager')}>
-                <Option value="Chưa duyệt">Chưa duyệt</Option>
-                <Option value="Đã duyệt">Đã duyệt</Option>
-                <Option value="Tạm ngưng">Tạm ngưng</Option>
-                <Option value="Từ chối">Từ chối</Option>
-              </Select>
-            </Form.Item>
-          </Col>
-        )}
-        {canReadField('approverDirector') && (
-          <Col span={8}>
-            <Form.Item
-              name="approverDirector"
-              label="Giám đốc duyệt"
-            >
-              <Select disabled={!canEditField('approverDirector')}>
-                <Option value="Chưa duyệt">Chưa duyệt</Option>
-                <Option value="Đã duyệt">Đã duyệt</Option>
-                <Option value="Tạm ngưng">Tạm ngưng</Option>
-                <Option value="Từ chối">Từ chối</Option>
-              </Select>
-            </Form.Item>
-          </Col>
-        )}
-        {canReadField('accountantReview') && (
-          <Col span={8}>
-            <Form.Item
-              name="accountantReview"
-              label="Kế toán kiểm tra"
-            >
-              <Select disabled={!canEditField('accountantReview')}>
-                <Option value="Chưa duyệt">Chưa duyệt</Option>
-                <Option value="Đã duyệt">Đã duyệt</Option>
-                <Option value="Tạm ngưng">Tạm ngưng</Option>
-                <Option value="Từ chối">Từ chối</Option>
-              </Select>
-            </Form.Item>
-          </Col>
-        )}
-      </Row>
+      {/* Removed approverManager, approverDirector, accountantReview fields */}
       <Row gutter={16}>
         {canReadField('adjustmentReason') && (
           <Col span={12}>
@@ -845,14 +818,14 @@ const CostFormModal = ({
         {canReadField('riskFlag') && (
           <Col span={12}>
             <Form.Item
-              name="riskFlag"
-              label="Cờ kiểm soát rủi ro"
-            >
-              <Select allowClear>
-                <Option value="Có">Có</Option>
-                <Option value="Không">Không</Option>
-              </Select>
-            </Form.Item>
+            name="riskFlag"
+            label="Cờ kiểm soát rủi ro"
+          >
+            <Select allowClear disabled={isNotificationView}>
+              <Option value="Có">Có</Option>
+              <Option value="Không">Không</Option>
+            </Select>
+          </Form.Item>
           </Col>
         )}
       </Row>
@@ -875,7 +848,7 @@ const CostFormModal = ({
             name="vendorName"
             label="Nhà cung cấp/Đối tác"
           >
-            <Input />
+            <Input disabled={isNotificationView} />
           </Form.Item>
         </Col>
         <Col span={12}>
@@ -883,7 +856,7 @@ const CostFormModal = ({
             name="vendorTaxCode"
             label="MST nhà cung cấp"
           >
-            <Input />
+            <Input disabled={isNotificationView} />
           </Form.Item>
         </Col>
       </Row>
@@ -893,7 +866,7 @@ const CostFormModal = ({
             name="costCategory"
             label="Nhóm chi phí"
           >
-            <Select allowClear>
+            <Select allowClear disabled={isNotificationView}>
               <Option value="Văn phòng phẩm">Văn phòng phẩm</Option>
               <Option value="Đi lại">Đi lại</Option>
               <Option value="Marketing">Marketing</Option>
@@ -907,7 +880,7 @@ const CostFormModal = ({
             name="costSubCategory"
             label="Tiểu mục chi phí"
           >
-            <Input />
+            <Input disabled={isNotificationView} />
           </Form.Item>
         </Col>
         <Col span={8}>
@@ -915,7 +888,7 @@ const CostFormModal = ({
             name="costCenter"
             label="Mã hạch toán (Trung tâm chi phí)"
           >
-            <Input />
+            <Input disabled={isNotificationView} />
           </Form.Item>
         </Col>
       </Row>
@@ -949,9 +922,25 @@ const CostFormModal = ({
     </>
   );
 
+  const getStatusTag = (status) => {
+      let color = 'default';
+      if (status === 'Đợi duyệt') color = 'orange';
+      else if (status === 'Quản lý duyệt') color = 'blue';
+      else if (status === 'Giám đốc duyệt') color = 'purple';
+      else if (status === 'Đã thanh toán') color = 'green';
+      else if (status === 'Huỷ' || status === 'Từ chối') color = 'red';
+      
+      return <Tag color={color}>{status}</Tag>;
+  };
+
   const getModalTitle = () => {
       if (isNotificationView) {
-          return 'Thông tin phiếu chi (Xem từ thông báo)';
+          return (
+              <Space>
+                  <span>Thông tin phiếu chi</span>
+                  {editingCost && getStatusTag(editingCost.paymentStatus)}
+              </Space>
+          );
       }
       return editingCost ? 'Cập nhật phiếu chi' : 'Tạo phiếu chi mới';
   };
@@ -977,22 +966,25 @@ const CostFormModal = ({
             }
 
             const { paymentStatus } = editingCost;
+            
             // Quyền duyệt của Manager: Chỉ khi Đợi duyệt
-            const allowManager = canEditField('approverManager') && paymentStatus === 'Đợi duyệt';
+            const allowManager = (user?.role === 'ip_manager' || user?.role === 'quan_ly' || user?.role === 'manager') && paymentStatus === 'Đợi duyệt';
             // Quyền duyệt của Director: Đợi duyệt (nếu được nhảy cóc) hoặc Quản lý duyệt
-            const allowDirector = canEditField('approverDirector') && ['Đợi duyệt', 'Quản lý duyệt'].includes(paymentStatus);
+            const allowDirector = (user?.role === 'admin' || user?.role === 'manager' || user?.role === 'director' || user?.role === 'giam_doc') && ['Đợi duyệt', 'Quản lý duyệt'].includes(paymentStatus);
+            // Quyền duyệt của Accountant: Giám đốc duyệt
+            const allowAccountant = (user?.role === 'admin' || user?.role === 'ke_toan' || user?.role === 'accountant') && paymentStatus === 'Giám đốc duyệt';
 
             // Nút Duyệt và Từ chối
-            if (allowManager || allowDirector) {
+            if (allowManager || allowDirector || allowAccountant) {
               return (
                 <>
                   <Button key="reject" danger onClick={handleRejectAction}>
                     Từ chối
                   </Button>
                   {!isNotificationView && (
-                      <Button key="submit" onClick={form.submit} style={{ marginRight: 8 }}>
-                        Lưu
-                      </Button>
+                    <Button key="save" onClick={form.submit} style={{ marginRight: 8, marginLeft: 8 }}>
+                      Lưu
+                    </Button>
                   )}
                   <Button key="approve" type="primary" onClick={handleApproveAction}>
                     Duyệt
