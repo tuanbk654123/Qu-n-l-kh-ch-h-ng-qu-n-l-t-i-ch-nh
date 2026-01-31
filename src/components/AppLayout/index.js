@@ -15,6 +15,7 @@ import {
   BellOutlined,
   MenuUnfoldOutlined,
   MenuFoldOutlined,
+  CalendarOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
@@ -116,6 +117,11 @@ const AppLayout = ({ children }) => {
         key: '/costs',
         icon: <DollarOutlined />,
         label: 'Quản lý chi phí',
+      },
+      {
+        key: '/scheduling',
+        icon: <CalendarOutlined />,
+        label: 'Chấm công dự án',
       },
     ];
 
