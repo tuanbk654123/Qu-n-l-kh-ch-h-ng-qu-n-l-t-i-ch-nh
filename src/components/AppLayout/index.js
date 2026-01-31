@@ -13,6 +13,8 @@ import {
   FileTextOutlined,
   SafetyCertificateOutlined,
   BellOutlined,
+  MenuUnfoldOutlined,
+  MenuFoldOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
@@ -170,6 +172,7 @@ const AppLayout = ({ children }) => {
         collapsible
         collapsed={collapsed}
         onCollapse={setCollapsed}
+        trigger={null}
         theme="light"
         width={250}
       >
@@ -196,9 +199,16 @@ const AppLayout = ({ children }) => {
             alignItems: 'center',
           }}
         >
-          <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 600 }}>
-            Hệ thống Quản lý Công ty
-          </h1>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            {React.createElement(collapsed ? MenuUnfoldOutlined : MenuFoldOutlined, {
+              className: 'trigger',
+              onClick: () => setCollapsed(!collapsed),
+              style: { fontSize: '20px', marginRight: '24px', cursor: 'pointer', color: '#1890ff' }
+            })}
+            <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 600 }}>
+              Hệ thống Quản lý Công ty
+            </h1>
+          </div>
           <Space size="large">
             <Popover
               content={notificationContent}
