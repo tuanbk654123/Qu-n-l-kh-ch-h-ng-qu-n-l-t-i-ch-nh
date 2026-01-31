@@ -56,13 +56,21 @@ const SchedulingPage = () => {
     const shtt = Array.from({ length: 9 }, () => generateRandomName()).join('\n');
     const pttt = Array.from({ length: 9 }, () => generateRandomName()).join('\n');
 
-    form.setFieldsValue({
+    // Only set dateRange if not already set
+    const currentValues = form.getFieldsValue();
+    const newValues = {
       ...seedData,
       companyList: companies,
       shttStaff: shtt,
       ptttStaff: pttt,
       otherGroups: []
-    });
+    };
+
+    if (currentValues.dateRange) {
+        delete newValues.dateRange;
+    }
+
+    form.setFieldsValue(newValues);
     message.success('Đã nạp dữ liệu mẫu!');
   };
 
@@ -77,9 +85,12 @@ const SchedulingPage = () => {
           return;
       }
 
-      const startDate = dateRange[0];
-      const endDate = dateRange[1];
+      // Ensure we work with Moment objects (Antd 5 uses Dayjs by default)
+      const startDate = moment(dateRange[0].toDate ? dateRange[0].toDate() : dateRange[0]);
+      const endDate = moment(dateRange[1].toDate ? dateRange[1].toDate() : dateRange[1]);
+
       const projectDays = endDate.diff(startDate, 'days') + 1; // Inclusive
+      const dateRangeStr = `${startDate.format('DD/MM/YYYY')} - ${endDate.format('DD/MM/YYYY')} (${projectDays} ngày)`;
 
       // 1. Initialize Resources
       const companyNamesArr = parseList(companyList);
@@ -216,6 +227,7 @@ const SchedulingPage = () => {
         maxCapacity: maxTeamsPerDay * workingDayCount,
         numCompanies,
         recommendation,
+        dateRangeStr,
         groups: staffGroups.map(g => ({
           name: g.roleName,
           count: g.staffList.length
@@ -588,6 +600,9 @@ const SchedulingPage = () => {
 
           {stats && (
             <Card title="Thống kê kết quả" style={{ marginTop: 16 }} bordered={false}>
+               <div style={{ marginBottom: 16, padding: '8px 12px', background: '#f0f2f5', borderRadius: 4 }}>
+                  <Text strong>Phạm vi lịch:</Text> <Text>{stats.dateRangeStr}</Text>
+               </div>
                <Row gutter={16}>
                  <Col span={24}>
                     <Statistic title="Số công ty" value={stats.numCompanies} />
