@@ -1013,7 +1013,7 @@ const CostFormModal = ({
             // Quyền duyệt của Manager: Chỉ khi Đợi duyệt
             const allowManager = (user?.role === 'ip_manager' || user?.role === 'quan_ly' || user?.role === 'manager') && paymentStatus === 'Đợi duyệt';
             // Quyền duyệt của Director: Đợi duyệt (nếu được nhảy cóc) hoặc Quản lý duyệt
-            const allowDirector = (user?.role === 'admin' || user?.role === 'manager' || user?.role === 'director' || user?.role === 'giam_doc') && ['Đợi duyệt', 'Quản lý duyệt'].includes(paymentStatus);
+            const allowDirector = (user?.role === 'admin' || user?.role === 'director' || user?.role === 'giam_doc') && ['Đợi duyệt', 'Quản lý duyệt'].includes(paymentStatus);
             // Quyền duyệt của Accountant: Giám đốc duyệt
             const allowAccountant = (user?.role === 'admin' || user?.role === 'ke_toan' || user?.role === 'accountant') && paymentStatus === 'Giám đốc duyệt';
 
