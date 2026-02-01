@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Card, Button, Form, InputNumber, Table, Row, Col, Alert, Statistic, Space, Typography, message, DatePicker, Input } from 'antd';
 import { CalendarOutlined, DownloadOutlined, DatabaseOutlined, PlusOutlined, MinusCircleOutlined } from '@ant-design/icons';
 import * as XLSX from 'xlsx-js-style';
 import { saveAs } from 'file-saver';
 import moment from 'moment';
+import axios from 'axios';
+import { useAuth } from '../../context/AuthContext';
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
@@ -43,6 +45,36 @@ const SchedulingPage = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(false);
   const [dynamicColumns, setDynamicColumns] = useState([]);
+  const { isAdmin } = useAuth();
+  const [fieldPermissions, setFieldPermissions] = useState({});
+
+  const fetchPermissions = useCallback(async () => {
+    try {
+      const response = await axios.get('/api/permissions/current', {
+        params: { module: 'scheduling' },
+      });
+      setFieldPermissions(response.data.permissions || {});
+    } catch (error) {
+      console.error('Error fetching permissions:', error);
+      setFieldPermissions({});
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchPermissions();
+  }, [fetchPermissions]);
+
+  const canReadField = (field) => {
+    if (isAdmin && isAdmin()) return true;
+    const level = fieldPermissions[field];
+    return level && level !== 'N';
+  };
+
+  const canEditField = (field) => {
+    if (isAdmin && isAdmin()) return true;
+    const level = fieldPermissions[field];
+    return level === 'W' || level === 'A';
+  };
 
   // Default Values (Seed Data)
   const seedData = {
@@ -135,11 +167,26 @@ const SchedulingPage = () => {
       const schedule = [];
       let totalVisits = 0;
 
+      // TRACKING: Staff usage per month to enforce 22-day limit
+      // structure: { 'MM-YYYY': { 'Staff Name': count } }
+      const staffUsage = {};
+
+      const getStaffUsage = (month, name) => {
+          if (!staffUsage[month]) return 0;
+          return staffUsage[month][name] || 0;
+      };
+
+      const incrementStaffUsage = (month, name) => {
+          if (!staffUsage[month]) staffUsage[month] = {};
+          staffUsage[month][name] = (staffUsage[month][name] || 0) + 1;
+      };
+
       // 2. Algorithm: Greedy with "Most Needs First" Strategy
       let workingDayCount = 0;
       for (let day = 0; day < projectDays; day++) {
         const dateObj = moment(startDate).add(day, 'days');
         const currentDate = dateObj.format('DD/MM/YYYY');
+        const currentMonthKey = dateObj.format('MM-YYYY');
         const dayOfWeek = dateObj.day(); // 0: Sunday, 1: Monday...
         const dayName = getDayName(dateObj);
 
@@ -158,11 +205,14 @@ const SchedulingPage = () => {
         
         workingDayCount++; // Increment Working Day Counter
 
-        // Shuffle staff for randomness for EACH group
-        const dailyStaffPools = staffGroups.map(group => ({
-          roleName: group.roleName,
-          pool: [...group.staffList].sort(() => 0.5 - Math.random())
-        }));
+        // Shuffle staff for randomness for EACH group, BUT filter by 22-day rule
+        const dailyStaffPools = staffGroups.map(group => {
+          const availableStaff = group.staffList.filter(name => getStaffUsage(currentMonthKey, name) < 22);
+          return {
+            roleName: group.roleName,
+            pool: [...availableStaff].sort(() => 0.5 - Math.random())
+          };
+        });
 
         // Prioritize companies that need visits the most
         const companiesNeedingVisits = companies
@@ -170,7 +220,9 @@ const SchedulingPage = () => {
           .sort((a, b) => (b.visitsNeeded - b.visitsDone) - (a.visitsNeeded - a.visitsDone)); // Descending needs
 
         // Assign for today
-        const assignmentsToday = Math.min(maxTeamsPerDay, companiesNeedingVisits.length);
+        // Constraint: Can't assign more than available staff in any group
+        const availableTeamsToday = Math.min(...dailyStaffPools.map(g => g.pool.length));
+        const assignmentsToday = Math.min(availableTeamsToday, companiesNeedingVisits.length);
 
         for (let i = 0; i < assignmentsToday; i++) {
           const company = companiesNeedingVisits[i];
@@ -187,9 +239,11 @@ const SchedulingPage = () => {
 
           // Assign one person from each group
           dailyStaffPools.forEach((groupPool, groupIndex) => {
-            // Because i < maxTeamsPerDay and maxTeamsPerDay <= group.length, 
+            // Because i < availableTeamsToday and availableTeamsToday <= groupPool.pool.length, 
             // groupPool.pool[i] is guaranteed to exist
-            entry[`role_${groupIndex}`] = groupPool.pool[i]; 
+            const staffName = groupPool.pool[i];
+            entry[`role_${groupIndex}`] = staffName;
+            incrementStaffUsage(currentMonthKey, staffName);
           });
 
           schedule.push(entry);
@@ -523,6 +577,7 @@ const SchedulingPage = () => {
       
       <Row gutter={[16, 16]}>
         <Col span={8}>
+          {canReadField('config') && (
           <Card title="Tham số đầu vào" bordered={false} bodyStyle={{ padding: '12px 24px' }}>
             <Form form={form} layout="vertical" onFinish={generateSchedule} initialValues={{ otherGroups: [] }}>
               <Form.Item 
@@ -592,13 +647,14 @@ const SchedulingPage = () => {
               </Form.Item>
               
               <Space style={{ width: '100%', justifyContent: 'space-between' }}>
-                <Button icon={<DatabaseOutlined />} onClick={handleSeedData}>Dữ liệu mẫu</Button>
-                <Button type="primary" htmlType="submit" loading={loading}>Xếp Lịch</Button>
+                <Button icon={<DatabaseOutlined />} onClick={handleSeedData} disabled={!canEditField('seedData')}>Dữ liệu mẫu</Button>
+                <Button type="primary" htmlType="submit" loading={loading} disabled={!canEditField('generate')}>Xếp Lịch</Button>
               </Space>
             </Form>
           </Card>
+          )}
 
-          {stats && (
+          {stats && canReadField('view') && (
             <Card title="Thống kê kết quả" style={{ marginTop: 16 }} bordered={false}>
                <div style={{ marginBottom: 16, padding: '8px 12px', background: '#f0f2f5', borderRadius: 4 }}>
                   <Text strong>Phạm vi lịch:</Text> <Text>{stats.dateRangeStr}</Text>
@@ -639,9 +695,10 @@ const SchedulingPage = () => {
         </Col>
 
         <Col span={16}>
+          {canReadField('view') && (
           <Card 
             title="Kết quả lịch trình" 
-            extra={<Button icon={<DownloadOutlined />} onClick={exportExcel} disabled={scheduleData.length === 0}>Xuất Excel</Button>}
+            extra={<Button icon={<DownloadOutlined />} onClick={exportExcel} disabled={scheduleData.length === 0 || !canEditField('export')}>Xuất Excel</Button>}
             bordered={false}
           >
             <Table 
@@ -652,6 +709,7 @@ const SchedulingPage = () => {
               scroll={{ y: 500 }}
             />
           </Card>
+          )}
         </Col>
       </Row>
     </div>

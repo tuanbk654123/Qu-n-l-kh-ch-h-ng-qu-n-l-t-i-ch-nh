@@ -7,7 +7,7 @@ import { transactionsData } from './fakedb/transactions';
 import { usersData, setCurrentUser, getCurrentUser } from './fakedb/users';
 import { costsData } from './fakedb/costs';
 import { notificationsData } from './fakedb/notifications';
-import { roles, qlkhFields, qlcpFields, initialPermissions } from './fakedb/permissions';
+import { roles, qlkhFields, qlcpFields, schedulingFields, initialPermissions } from './fakedb/permissions';
 
 const mock = new MockAdapter(axios, { delayResponse: 500 });
 
@@ -695,7 +695,8 @@ mock.onGet('/api/permissions').reply(() => {
     permissions: currentPermissions,
     roles,
     qlkhFields,
-    qlcpFields
+    qlcpFields,
+    schedulingFields,
   }];
 });
 

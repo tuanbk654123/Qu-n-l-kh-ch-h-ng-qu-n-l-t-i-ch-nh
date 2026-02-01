@@ -8,6 +8,32 @@ export const roles = [
   { key: 'admin', label: 'Admin' },
 ];
 
+export const schedulingFields = [
+  {
+    key: 'group_actions',
+    label: 'I. Thao tác',
+    children: [
+      { key: 'seedData', label: 'Dữ liệu mẫu' },
+      { key: 'generate', label: 'Tạo lịch' },
+      { key: 'export', label: 'Xuất Excel' },
+    ],
+  },
+  {
+    key: 'group_config',
+    label: 'II. Cấu hình',
+    children: [
+      { key: 'config', label: 'Form cấu hình' },
+    ],
+  },
+  {
+    key: 'group_view',
+    label: 'III. Hiển thị',
+    children: [
+      { key: 'view', label: 'Xem lịch' },
+    ],
+  },
+];
+
 export const qlkhFields = [
   {
     key: 'group_general',
@@ -770,6 +796,54 @@ const init = () => {
     }),
   };
 
+  const schedulingFieldPermissions = {
+    seedData: getRoleMap({
+      admin: 'W',
+      director: 'W',
+      ceo: 'W',
+      ip_manager: 'W',
+      ip_executive: 'R',
+      marketing_sales: 'N',
+      accountant: 'N',
+    }),
+    generate: getRoleMap({
+      admin: 'W',
+      director: 'W',
+      ceo: 'W',
+      ip_manager: 'W',
+      ip_executive: 'R',
+      marketing_sales: 'N',
+      accountant: 'N',
+    }),
+    export: getRoleMap({
+      admin: 'W',
+      director: 'W',
+      ceo: 'W',
+      ip_manager: 'W',
+      ip_executive: 'W',
+      marketing_sales: 'N',
+      accountant: 'N',
+    }),
+    config: getRoleMap({
+      admin: 'W',
+      director: 'W',
+      ceo: 'W',
+      ip_manager: 'W',
+      ip_executive: 'R',
+      marketing_sales: 'N',
+      accountant: 'N',
+    }),
+    view: getRoleMap({
+      admin: 'R',
+      director: 'R',
+      ceo: 'R',
+      ip_manager: 'R',
+      ip_executive: 'R',
+      marketing_sales: 'N',
+      accountant: 'N',
+    }),
+  };
+
   qlkhFields.forEach((group) => {
     group.children.forEach((field) => {
       const fieldConfig = qlkhFieldPermissions[field.key] || getRoleMap({});
@@ -786,6 +860,16 @@ const init = () => {
       if (!initialPermissions.qlcp[field.key]) initialPermissions.qlcp[field.key] = {};
       roles.forEach((role) => {
         initialPermissions.qlcp[field.key][role.key] = fieldConfig[role.key];
+      });
+    });
+  });
+
+  schedulingFields.forEach((group) => {
+    group.children.forEach((field) => {
+      const fieldConfig = schedulingFieldPermissions[field.key] || getRoleMap({});
+      if (!initialPermissions.scheduling[field.key]) initialPermissions.scheduling[field.key] = {};
+      roles.forEach((role) => {
+        initialPermissions.scheduling[field.key][role.key] = fieldConfig[role.key];
       });
     });
   });

@@ -9,9 +9,10 @@ const { Title, Text } = Typography;
 const PermissionModule = () => {
   const [loading, setLoading] = useState(false);
   const [roles, setRoles] = useState([]);
-  const [permissions, setPermissions] = useState({ qlkh: {}, qlcp: {}, users: {}, dashboard: {}, export: {} });
+  const [permissions, setPermissions] = useState({ qlkh: {}, qlcp: {}, users: {}, dashboard: {}, export: {}, scheduling: {} });
   const [qlkhFields, setQlkhFields] = useState([]);
   const [qlcpFields, setQlcpFields] = useState([]);
+  const [schedulingFields, setSchedulingFields] = useState([]);
   const [userFields, setUserFields] = useState([]);
   const [dashboardFields, setDashboardFields] = useState([]);
   const [exportFields, setExportFields] = useState([]);
@@ -32,9 +33,11 @@ const PermissionModule = () => {
         users: data.permissions?.users || {},
         dashboard: data.permissions?.dashboard || {},
         export: data.permissions?.export || {},
+        scheduling: data.permissions?.scheduling || {},
       });
       setQlkhFields(data.qlkhFields || []);
       setQlcpFields(data.qlcpFields || []);
+      setSchedulingFields(data.schedulingFields || []);
       setUserFields(data.userFields || []);
       setDashboardFields(data.dashboardFields || []);
       setExportFields(data.exportFields || []);
@@ -258,7 +261,12 @@ const PermissionModule = () => {
             key: 'export',
             label: 'Xuất văn bản',
             children: renderTable('export', exportFields),
-          }
+          },
+          {
+            key: 'scheduling',
+            label: 'Chấm công dự án',
+            children: renderTable('scheduling', schedulingFields),
+          },
         ]}
       />
     </Card>
